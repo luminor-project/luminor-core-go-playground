@@ -19,12 +19,18 @@ RUN templ generate
 # Build the server binary
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/server ./cmd/server
 
-# Runtime stage — distroless for minimal attack surface
-FROM gcr.io/distroless/static-debian12
+# Build the migrate binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/migrate ./cmd/migrate
+
+# Runtime stage — alpine (shell needed for docker compose exec)
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
 COPY --from=builder /app/bin/server /app/server
+COPY --from=builder /app/bin/migrate /app/migrate
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/migrations /app/migrations
 
