@@ -1,0 +1,48 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ SignIn(csrfToken, lastEmail, errorMsg string) {
+	@layouts.AppShell(i18n.T(ctx, "auth.signIn.pageTitle")) {
+		<div data-test-id="sign-in-page">
+			@layouts.CenteredPanel() {
+				<div class="text-center">
+					<h1 class="lmn-h1" data-test-id="sign-in-heading">{ i18n.T(ctx, "auth.signIn.heading") }</h1>
+					<p class="lmn-text-small mt-2">{ i18n.T(ctx, "auth.signIn.subtitle") }</p>
+				</div>
+				if errorMsg != "" {
+					@layouts.StandardAlert("error", errorMsg)
+				}
+				@layouts.SurfaceCard() {
+					<form action={ i18n.LocalizedPath(ctx, "/sign-in") } method="post" class="space-y-6">
+						<div>
+							<label for="email" class="lmn-form-label">{ i18n.T(ctx, "auth.common.email") }</label>
+							<input
+								id="email"
+								name="email"
+								type="email"
+								autocomplete="email"
+								required
+								value={ lastEmail }
+								placeholder={ i18n.T(ctx, "auth.common.emailPlaceholder") }
+								class="lmn-form-input"
+								data-test-id="sign-in-email"
+							/>
+						</div>
+						<div data-test-id="sign-in-password">
+							@layouts.FormField("password", "password", i18n.T(ctx, "auth.common.password"), "password", i18n.T(ctx, "auth.signIn.passwordPlaceholder"), "current-password", "", true)
+						</div>
+						<button type="submit" class="lmn-button-default w-full" data-test-id="sign-in-submit">{ i18n.T(ctx, "auth.signIn.submit") }</button>
+					</form>
+				}
+				<p class="text-center lmn-text-small">
+					{ i18n.T(ctx, "auth.signIn.noAccount") }
+					<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class="lmn-link-default font-semibold">{ i18n.T(ctx, "auth.signIn.createOne") }</a>
+				</p>
+			}
+		</div>
+	}
+}

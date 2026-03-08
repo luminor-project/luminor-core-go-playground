@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Run quality checks plus generated/format drift gate"
+set -euo pipefail
+
+mise run quality
+
+echo "==> Verifying generated/format drift..."
+git diff --exit-code
+
+echo "Strict quality checks passed."

@@ -1,0 +1,274 @@
+package layouts
+
+import (
+	"context"
+	"os"
+	"strings"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/flash"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
+)
+
+templ AppShell(title string) {
+	<!DOCTYPE html>
+	<html lang={ string(i18n.LocaleFromContext(ctx)) } class="h-full">
+	<head>
+		<meta charset="UTF-8"/>
+		<title>{ title }</title>
+		<link rel="canonical" href={ i18n.AlternateLocalizedPath(ctx, i18n.LocaleFromContext(ctx)) }/>
+		for _, locale := range i18n.SupportedLocales() {
+			<link rel="alternate" hreflang={ string(locale) } href={ i18n.AlternateLocalizedPath(ctx, locale) }/>
+		}
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+		<link rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+		<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script>
+			// Theme init — prevent flash of wrong theme
+			if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				document.documentElement.classList.add('dark');
+			}
+		</script>
+	</head>
+	<body class="h-full text-stone-900 dark:text-stone-100 transition-colors duration-150">
+		<div x-data="{ mobileSidebarOpen: false }" class="min-h-screen">
+			<!-- Mobile sidebar overlay -->
+			@mobileNav(title)
+
+			<!-- Desktop sidebar -->
+			@desktopNav(title)
+
+			<div class="lg:pl-72 flex-1">
+				<!-- Top header bar -->
+				<header class="sticky top-0 z-40 lmn-nav-bg border-b lmn-nav-border">
+					<div class="flex h-16 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8 w-full">
+						<div class="lg:hidden">
+							@brandLogo()
+						</div>
+						<div class="flex flex-1 justify-end gap-4 items-center">
+							@darkModeToggle()
+							<!-- Mobile menu toggle -->
+							<div class="lg:hidden">
+								<button
+									type="button"
+									class="lmn-button-secondary px-2.5 py-2"
+									@click="mobileSidebarOpen = !mobileSidebarOpen"
+								>
+									<span>{ i18n.T(ctx, "common.menu") }</span>
+									<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+									</svg>
+								</button>
+							</div>
+						</div>
+					</div>
+				</header>
+
+				<main class="py-10 w-full">
+					<div class="px-4 sm:px-6 lg:px-8 w-full">
+						@flashMessages()
+						<div class="content-fade-up">
+							{ children... }
+						</div>
+					</div>
+				</main>
+			</div>
+		</div>
+		<script src="/static/js/htmx.min.js"></script>
+		<script src="/static/js/alpine.min.js" defer></script>
+		<script src="/static/js/app.js"></script>
+	</body>
+	</html>
+}
+
+templ mobileNav(currentTitle string) {
+	<div
+		x-show="mobileSidebarOpen"
+		x-transition:enter="transition-opacity ease-linear duration-150"
+		x-transition:enter-start="opacity-0"
+		x-transition:enter-end="opacity-100"
+		x-transition:leave="transition-opacity ease-linear duration-150"
+		x-transition:leave-start="opacity-100"
+		x-transition:leave-end="opacity-0"
+		x-cloak
+		class="fixed inset-0 z-50 lg:hidden"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="relative flex flex-col w-full h-full lmn-nav-bg">
+			<!-- Close button -->
+			<div class="absolute top-0 right-0 h-16 flex items-center px-4 sm:px-6 z-10">
+				<button
+					type="button"
+					class="rounded-full w-9 h-9 flex items-center justify-center text-stone-600 hover:text-primary-700 dark:text-stone-400 dark:hover:text-primary-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none cursor-pointer"
+					@click="mobileSidebarOpen = false"
+				>
+					<span class="sr-only">Close menu</span>
+					<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+					</svg>
+				</button>
+			</div>
+			<!-- Logo -->
+			<div class="flex h-16 shrink-0 items-center px-6">
+				@brandLogo()
+			</div>
+			<!-- Nav links -->
+			<div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
+				@sidebarNavItems(currentTitle)
+			</div>
+		</div>
+	</div>
+}
+
+templ desktopNav(currentTitle string) {
+	<div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+		<div class="flex grow flex-col gap-y-5 overflow-y-auto lmn-nav-bg lmn-nav-border px-6 pb-4">
+			<div class="flex h-16 shrink-0 items-center">
+				@brandLogo()
+			</div>
+			@sidebarNavItems(currentTitle)
+		</div>
+	</div>
+}
+
+templ sidebarNavItems(currentTitle string) {
+	<nav class="flex flex-1 flex-col">
+		<ul role="list" class="flex flex-1 flex-col gap-y-7">
+			<li>
+				<div class="lmn-nav-section-title">{ i18n.T(ctx, "nav.navigation") }</div>
+				<ul role="list" class="lmn-nav-group">
+					<li>
+						<a href={ i18n.LocalizedPath(ctx, "/") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.home")) }>
+							<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+							</svg>
+							{ i18n.T(ctx, "nav.home") }
+						</a>
+					</li>
+					if showLivingStyleguide() {
+						<li>
+							<a href={ i18n.LocalizedPath(ctx, "/living-styleguide") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.styleguide")) }>
+								<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
+								</svg>
+								{ i18n.T(ctx, "nav.styleguide") }
+							</a>
+						</li>
+					}
+					if auth.IsAuthenticated(ctx) {
+						<li>
+							<a href={ i18n.LocalizedPath(ctx, "/dashboard") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.yourAccount")) }>
+								<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
+								</svg>
+								{ i18n.T(ctx, "nav.yourAccount") }
+							</a>
+						</li>
+						<li>
+							<a href={ i18n.LocalizedPath(ctx, "/organization") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.organization")) }>
+								<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"/>
+								</svg>
+								{ i18n.T(ctx, "nav.organization") }
+							</a>
+						</li>
+					} else {
+						<li>
+							<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.signIn")) }>
+								<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/>
+								</svg>
+								{ i18n.T(ctx, "nav.signIn") }
+							</a>
+						</li>
+						<li>
+							<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ navItemClass(currentTitle, i18n.T(ctx, "nav.signUp")) }>
+								<svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z"/>
+								</svg>
+								{ i18n.T(ctx, "nav.signUp") }
+							</a>
+						</li>
+					}
+				</ul>
+			</li>
+		</ul>
+	</nav>
+}
+
+templ brandLogo() {
+	<a href={ i18n.LocalizedPath(ctx, "/") } class="flex items-center gap-2">
+		<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-700 to-accent-700 flex items-center justify-center">
+			<span class="text-white font-bold text-sm">L</span>
+		</div>
+		<span class="font-display text-xl font-semibold text-primary-900 dark:text-primary-100">Luminor</span>
+	</a>
+}
+
+templ darkModeToggle() {
+	<button
+		type="button"
+		onclick="toggleDarkMode()"
+		class="rounded-full w-9 h-9 flex items-center justify-center text-stone-600 hover:text-primary-700 dark:text-stone-400 dark:hover:text-primary-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none"
+	>
+		<svg class="hidden dark:block h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+			<path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+		</svg>
+		<svg class="block dark:hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+			<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+		</svg>
+	</button>
+}
+
+templ flashMessages() {
+	for _, msg := range flash.FromContext(ctx) {
+		if msg.Type == flash.TypeSuccess {
+			<div class="lmn-alert lmn-alert-success mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-success-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+		if msg.Type == flash.TypeError {
+			<div class="lmn-alert lmn-alert-danger mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-danger-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+		if msg.Type == flash.TypeWarning {
+			<div class="lmn-alert lmn-alert-warning mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-warning-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+		if msg.Type == flash.TypeInfo {
+			<div class="lmn-alert lmn-alert-info mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-info-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+	}
+}
+
+// PageData helper to get render context
+func getPageData(ctx context.Context) render.PageData {
+	return render.PageDataFromContext(ctx)
+}
+
+func showLivingStyleguide() bool {
+	return os.Getenv("APP_ENV") != "production"
+}
+
+func navItemClass(pageTitle, target string) string {
+	base := "lmn-nav-link flex gap-x-3 p-2 text-sm leading-6 font-semibold"
+	if strings.EqualFold(pageTitle, target) {
+		return base + " lmn-nav-link-active"
+	}
+	return base
+}

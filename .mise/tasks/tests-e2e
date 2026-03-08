@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#MISE description="Run Playwright E2E tests"
+set -euo pipefail
+
+cd tests/e2e
+
+echo "==> Installing Playwright dependencies..."
+mise run in-app-container sh -lc "cd tests/e2e && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm ci && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npx playwright install --with-deps chromium"
+
+echo "==> Preparing database and server..."
+mise run in-app-container sh -c "cd /app && go run ./cmd/migrate business up && go run ./cmd/migrate rag up"
+mise run in-app-container sh -c "cd /app && go build -o ./bin/server ./cmd/server"
+
+echo "==> Running E2E tests..."
+mise run in-app-container sh -lc "cd /app && \
+  ./bin/server >/tmp/e2e-server.log 2>&1 & \
+  SERVER_PID=\$!; \
+  cleanup() { kill \"\$SERVER_PID\" >/dev/null 2>&1 || true; }; \
+  trap cleanup EXIT INT TERM; \
+  for i in \$(seq 1 30); do \
+    if curl -s --max-time 2 -o /dev/null http://localhost:8080/; then \
+      break; \
+    fi; \
+    sleep 1; \
+  done; \
+  cd /app/tests/e2e && BASE_URL=http://localhost:8080 MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npx playwright test"

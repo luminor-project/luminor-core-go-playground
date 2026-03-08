@@ -1,0 +1,571 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ LivingStyleguide() {
+	@layouts.AppShell(i18n.T(ctx, "styleguide.title")) {
+		<div class="space-y-8">
+			<section class="lmn-card">
+				<div class="lmn-card-content text-center">
+					<h1 class="lmn-pagetitle mb-3">Living Styleguide</h1>
+					<p class="lmn-text max-w-3xl mx-auto">
+						The Luminor design system is built for long-lived applications with strict correctness and consistency requirements.
+						Use this page as the production source of truth for tokens, component states, and composed interface components.
+					</p>
+				</div>
+			</section>
+
+			<nav class="lmn-styleguide-nav">
+				<a href="#principles" class="lmn-styleguide-nav-link">Principles</a>
+				<a href="#tokens" class="lmn-styleguide-nav-link">Tokens</a>
+				<a href="#typography" class="lmn-styleguide-nav-link">Typography</a>
+				<a href="#actions" class="lmn-styleguide-nav-link">Actions</a>
+				<a href="#forms" class="lmn-styleguide-nav-link">Forms</a>
+				<a href="#cards" class="lmn-styleguide-nav-link">Cards</a>
+				<a href="#status" class="lmn-styleguide-nav-link">Status</a>
+				<a href="#table-pagination" class="lmn-styleguide-nav-link">Data</a>
+				<a href="#media" class="lmn-styleguide-nav-link">Media</a>
+				<a href="#sections" class="lmn-styleguide-nav-link">Compositions</a>
+			</nav>
+
+			<section id="principles" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">01 - Design Principles</h2></div>
+				<div class="lmn-card-content grid gap-6 md:grid-cols-3">
+					<div class="lmn-feature-card">
+						<h3 class="lmn-h4">Consistency at scale</h3>
+						<p class="lmn-text-small mt-2">Use semantic classes and shared templ components instead of one-off utility stacks in page templates.</p>
+					</div>
+					<div class="lmn-feature-card">
+						<h3 class="lmn-h4">Accessible by default</h3>
+						<p class="lmn-text-small mt-2">All interactive patterns require visible focus, sufficient contrast, and predictable semantics.</p>
+					</div>
+					<div class="lmn-feature-card">
+						<h3 class="lmn-h4">Composable architecture</h3>
+						<p class="lmn-text-small mt-2">Build pages from atoms, molecules, and organisms so teams can evolve the UI without visual drift.</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="tokens" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">02 - Tokens</h2></div>
+				<div class="lmn-card-content space-y-8">
+					<div>
+						<h3 class="lmn-h4 mb-3">Color Ramps</h3>
+						<div class="grid gap-4 sm:grid-cols-3">
+							<div class="lmn-token-row">
+								<p class="lmn-text-small font-semibold">Primary</p>
+								<div class="lmn-token-swatch-group">
+									<div class="lmn-token-swatch bg-primary-200"></div>
+									<div class="lmn-token-swatch bg-primary-500"></div>
+									<div class="lmn-token-swatch bg-primary-800"></div>
+								</div>
+							</div>
+							<div class="lmn-token-row">
+								<p class="lmn-text-small font-semibold">Accent</p>
+								<div class="lmn-token-swatch-group">
+									<div class="lmn-token-swatch bg-accent-200"></div>
+									<div class="lmn-token-swatch bg-accent-500"></div>
+									<div class="lmn-token-swatch bg-accent-800"></div>
+								</div>
+							</div>
+							<div class="lmn-token-row">
+								<p class="lmn-text-small font-semibold">Stone</p>
+								<div class="lmn-token-swatch-group">
+									<div class="lmn-token-swatch bg-stone-200"></div>
+									<div class="lmn-token-swatch bg-stone-500"></div>
+									<div class="lmn-token-swatch bg-stone-800"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="grid gap-6 md:grid-cols-2">
+						<div class="lmn-card">
+							<div class="lmn-card-content">
+								<h4 class="lmn-h4">Spacing and Radius</h4>
+								<p class="lmn-text-small mt-2">Use `lmn-card`, `lmn-button-*`, and `lmn-form-*` primitives to enforce spacing and radius rhythm.</p>
+							</div>
+						</div>
+						<div class="lmn-card">
+							<div class="lmn-card-content">
+								<h4 class="lmn-h4">Elevation and Motion</h4>
+								<p class="lmn-text-small mt-2">Use semantic wrappers (`lmn-card-hover`, `lmn-stat-card`) for hover and elevation instead of custom shadows and transforms.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="typography" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">03 - Typography</h2></div>
+				<div class="lmn-card-content space-y-5">
+					<h1 class="lmn-h1">Display Heading</h1>
+					<h1 class="lmn-h1-gradient"><span class="lmn-h1-gradient-span">Gradient Display Heading</span></h1>
+					<h2 class="lmn-h2">Section Heading</h2>
+					<h3 class="lmn-h3">Subsection Heading</h3>
+					<p class="lmn-text">
+						Write body copy with clear reading rhythm. Add inline semantic links such as
+						<a href="#" class="lmn-link-default">this example link</a> only when the destination adds value.
+					</p>
+					<p class="lmn-text-small">Secondary metadata and helper text should remain concise.</p>
+					<blockquote class="lmn-blockquote">
+						"Consistency is a product feature. A styleguide only works when implementation and documentation stay in lockstep."
+					</blockquote>
+					<ul class="lmn-list">
+						<li>Prefer semantic classes over ad-hoc visual utilities.</li>
+						<li>Use component wrappers for repeated components.</li>
+						<li>Preserve dark-mode parity for every showcase item.</li>
+					</ul>
+				</div>
+			</section>
+
+			<section id="actions" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">04 - Action Matrix (Links and Buttons)</h2></div>
+				<div class="lmn-card-content space-y-8">
+					<div>
+						<h3 class="lmn-h4 mb-3">Inline Links</h3>
+						<div class="flex flex-wrap gap-4">
+							<a href="#" class="lmn-link-default">Default</a>
+							<a href="#" class="lmn-link-secondary">Secondary</a>
+							<a href="#" class="lmn-link-danger">Danger</a>
+							<span class="lmn-link-default-disabled">Disabled</span>
+						</div>
+					</div>
+					<div>
+						<h3 class="lmn-h4 mb-3">Buttons</h3>
+						<div class="flex flex-wrap gap-3">
+							<button class="lmn-button-default">Primary</button>
+							<button class="lmn-button-secondary">Secondary</button>
+							<button class="lmn-button-danger">Danger</button>
+							<button class="lmn-button-default-disabled" disabled>Disabled</button>
+						</div>
+					</div>
+					<div>
+						<h3 class="lmn-h4 mb-3">Links as Buttons</h3>
+						<div class="flex flex-wrap gap-3">
+							<a href="#" class="lmn-link-as-button-default">Primary action</a>
+							<a href="#" class="lmn-link-as-button-secondary">Secondary action</a>
+							<a href="#" class="lmn-link-as-button-danger">Danger action</a>
+							<span class="lmn-link-as-button-default-disabled">Disabled action</span>
+						</div>
+					</div>
+					<div>
+						<h3 class="lmn-h4 mb-3">Buttons as Links</h3>
+						<div class="flex flex-wrap gap-4">
+							<button class="lmn-button-as-link-default">Default text action</button>
+							<button class="lmn-button-as-link-secondary">Secondary text action</button>
+							<button class="lmn-button-as-link-danger">Danger text action</button>
+							<button class="lmn-button-as-link-default-disabled" disabled>Disabled text action</button>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="forms" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">05 - Forms</h2></div>
+				<div class="lmn-card-content space-y-10">
+					<div>
+						<h3 class="lmn-h4 mb-4">Form Elements and States</h3>
+						<div class="grid gap-5 md:grid-cols-2">
+							@layouts.FormField("sg_text", "sg_text", "Text input", "text", "Enter a value", "", "", true)
+							@layouts.FormField("sg_email", "sg_email", "Email input", "email", "owner@example.com", "email", "", true)
+							<div>
+								<label class="lmn-form-label" for="sg_select">Select</label>
+								<select class="lmn-form-select" id="sg_select">
+									<option>Option 1</option>
+									<option>Option 2</option>
+									<option>Option 3</option>
+								</select>
+							</div>
+							<div>
+								<label class="lmn-form-label" for="sg_textarea">Textarea</label>
+								<textarea class="lmn-form-textarea" id="sg_textarea" rows="3" placeholder="Describe your request"></textarea>
+							</div>
+							<div>
+								<label class="lmn-form-label" for="sg_valid">Valid State</label>
+								<input id="sg_valid" class="lmn-form-input lmn-form-input-valid" value="Looks correct"/>
+							</div>
+							<div>
+								<label class="lmn-form-label" for="sg_invalid">Invalid State</label>
+								<input id="sg_invalid" class="lmn-form-input lmn-form-input-invalid" value="Invalid"/>
+								<p class="lmn-form-error-text">Please provide a valid value.</p>
+							</div>
+						</div>
+						<div class="mt-5 grid gap-3 md:grid-cols-2">
+							<div class="space-y-2">
+								<label class="lmn-form-checkbox-wrapper">
+									<input type="checkbox" class="lmn-form-checkbox"/>
+									<span class="lmn-form-checkbox-label">Enable notifications</span>
+								</label>
+								<label class="lmn-form-checkbox-wrapper">
+									<input type="checkbox" class="lmn-form-checkbox" checked/>
+									<span class="lmn-form-checkbox-label">Require approval</span>
+								</label>
+							</div>
+							<div class="space-y-2">
+								<label class="lmn-form-radio-wrapper">
+									<input type="radio" name="sg_plan" class="lmn-form-radio" checked/>
+									<span class="lmn-form-radio-label">Standard plan</span>
+								</label>
+								<label class="lmn-form-radio-wrapper">
+									<input type="radio" name="sg_plan" class="lmn-form-radio"/>
+									<span class="lmn-form-radio-label">Premium plan</span>
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<div>
+						<h3 class="lmn-h4 mb-4">Simple Form</h3>
+						<div class="lmn-card">
+							<div class="lmn-card-content">
+								<form class="flex flex-col sm:flex-row gap-3">
+									<input type="email" class="lmn-form-input flex-1" placeholder="name@company.com"/>
+									<button type="button" class="lmn-button-default">Subscribe</button>
+								</form>
+							</div>
+						</div>
+					</div>
+
+					<div>
+						<h3 class="lmn-h4 mb-4">Complex Form</h3>
+						<div class="lmn-card">
+							<div class="lmn-card-content">
+								<form class="space-y-8">
+									<div class="space-y-5">
+										<h4 class="lmn-h4 border-b border-stone-200 dark:border-stone-700 pb-2">Profile Information</h4>
+										<div class="grid sm:grid-cols-2 gap-4">
+											@layouts.FormField("sg_first_name", "sg_first_name", "First name", "text", "Jane", "", "", true)
+											@layouts.FormField("sg_last_name", "sg_last_name", "Last name", "text", "Cooper", "", "", true)
+											@layouts.FormField("sg_role", "sg_role", "Role", "text", "Regional Manager", "", "", true)
+											@layouts.FormField("sg_phone", "sg_phone", "Phone", "tel", "+49 ...", "tel", "", false)
+										</div>
+									</div>
+									<div class="space-y-4">
+										<h4 class="lmn-h4 border-b border-stone-200 dark:border-stone-700 pb-2">Preferences</h4>
+										<label class="lmn-form-checkbox-wrapper">
+											<input type="checkbox" class="lmn-form-checkbox" checked/>
+											<span class="lmn-form-checkbox-label">Receive weekly reports</span>
+										</label>
+										<label class="lmn-form-checkbox-wrapper">
+											<input type="checkbox" class="lmn-form-checkbox"/>
+											<span class="lmn-form-checkbox-label">Enable shared workspace access</span>
+										</label>
+									</div>
+									<div class="pt-4 border-t border-stone-200 dark:border-stone-700 flex justify-end gap-3">
+										<button type="button" class="lmn-button-as-link-secondary">Cancel</button>
+										<button type="button" class="lmn-button-default">Save Profile</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="cards" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">06 - Card Archetypes</h2></div>
+				<div class="lmn-card-content grid gap-6 lg:grid-cols-3">
+					<div class="lmn-card lmn-card-hover">
+						<div class="lmn-card-title"><h3 class="lmn-card-title-text">Simple Feature</h3></div>
+						<div class="lmn-card-content">
+							<p class="lmn-text-small">Use for compact feature descriptions and low-density informational blocks.</p>
+							<div class="lmn-card-actions"><a href="#" class="lmn-link-default">Learn more</a></div>
+						</div>
+					</div>
+					<div class="lmn-card lmn-card-hover">
+						<div class="lmn-card-content text-center">
+							<div class="mx-auto h-12 w-12 rounded-full bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center text-accent-700 dark:text-accent-300">
+								<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"/></svg>
+							</div>
+							<h3 class="lmn-h4 mt-4">Icon Card</h3>
+							<p class="lmn-text-small mt-2">Use icon-centered cards to communicate product capabilities quickly.</p>
+						</div>
+					</div>
+					<div class="lmn-testimonial-card">
+						<blockquote class="lmn-blockquote border-l-0 pl-0">"The new UI language gives us consistency, confidence, and faster delivery."</blockquote>
+						<p class="lmn-text-small mt-3">- Product Team Lead</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="status" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">07 - Status, Badges, Alerts</h2></div>
+				<div class="lmn-card-content space-y-8">
+					<div>
+						<h3 class="lmn-h4 mb-3">Badges</h3>
+						<div class="flex flex-wrap gap-2">
+							<span class="lmn-badge lmn-badge-success">Success</span>
+							<span class="lmn-badge lmn-badge-warning">Warning</span>
+							<span class="lmn-badge lmn-badge-info">Info</span>
+							<span class="lmn-badge lmn-badge-error">Error</span>
+							<span class="lmn-badge lmn-badge-dark">Neutral</span>
+						</div>
+					</div>
+					<div class="grid gap-4 lg:grid-cols-2">
+						<div class="space-y-3">
+							@layouts.StandardAlert("success", "Saved successfully.")
+							<div class="lmn-alert lmn-alert-warning"><div class="lmn-alert-body"><p class="lmn-alert-warning-text">Some values need review before submission.</p></div></div>
+							@layouts.StandardAlert("error", "A critical error occurred.")
+							<div class="lmn-alert lmn-alert-info"><div class="lmn-alert-body"><p class="lmn-alert-info-text">Informational update for non-blocking events.</p></div></div>
+						</div>
+						<div class="space-y-3">
+							<div class="lmn-alert-with-details lmn-alert-success">
+								<div class="lmn-alert-title lmn-alert-title-success">Operation completed</div>
+								<div class="lmn-alert-body lmn-alert-body-success">All changes were persisted and synchronized.</div>
+							</div>
+							<div class="lmn-alert-with-details lmn-alert-danger">
+								<div class="lmn-alert-title lmn-alert-title-danger">Operation failed</div>
+								<div class="lmn-alert-body lmn-alert-body-danger">The service returned an error. Please retry.</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="table-pagination" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">08 - Data Display (Table and Pagination)</h2></div>
+				<div class="lmn-card-content space-y-6">
+					<div class="overflow-x-auto border border-stone-200 dark:border-stone-700 rounded-xl">
+						<table class="lmn-table">
+							<thead>
+								<tr>
+									<th class="lmn-table-header">Name</th>
+									<th class="lmn-table-header">Role</th>
+									<th class="lmn-table-header lmn-table-header-right">Status</th>
+									<th class="lmn-table-header lmn-table-header-right">Team</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-stone-200 dark:divide-stone-700">
+								<tr class="lmn-content-table-row">
+									<td class="lmn-table-cell">Jane Cooper</td>
+									<td class="lmn-table-cell lmn-table-cell-secondary">Regional Manager</td>
+									<td class="lmn-table-cell lmn-table-cell-right"><span class="lmn-badge lmn-badge-success">Active</span></td>
+									<td class="lmn-table-cell lmn-table-cell-right lmn-table-cell-secondary">Operations</td>
+								</tr>
+								<tr class="lmn-content-table-row">
+									<td class="lmn-table-cell">Cody Fisher</td>
+									<td class="lmn-table-cell lmn-table-cell-secondary">Project Owner</td>
+									<td class="lmn-table-cell lmn-table-cell-right"><span class="lmn-badge lmn-badge-warning">Pending</span></td>
+									<td class="lmn-table-cell lmn-table-cell-right lmn-table-cell-secondary">Product</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<div class="sm:flex sm:items-center sm:justify-between">
+						<p class="lmn-pagination-info">Showing <span class="font-medium">1</span> to <span class="font-medium">10</span> of <span class="font-medium">120</span> results</p>
+						<nav class="lmn-pagination-nav mt-4 sm:mt-0" aria-label="Pagination">
+							<button class="lmn-pagination-nav-button lmn-pagination-nav-button-disabled"><span class="sr-only">Previous</span>&larr;</button>
+							<a href="#" aria-current="page" class="lmn-pagination-item lmn-pagination-item-active">1</a>
+							<a href="#" class="lmn-pagination-item">2</a>
+							<a href="#" class="lmn-pagination-item">3</a>
+							<span class="lmn-pagination-item">...</span>
+							<a href="#" class="lmn-pagination-item">12</a>
+							<a href="#" class="lmn-pagination-nav-button"><span class="sr-only">Next</span>&rarr;</a>
+						</nav>
+					</div>
+				</div>
+			</section>
+
+			<section id="media" class="lmn-styleguide-section">
+				<div class="lmn-card-title"><h2 class="lmn-card-title-text">09 - Image and Media Compositions</h2></div>
+				<div class="lmn-card-content space-y-10">
+					<div class="lmn-media-hero">
+						<img src="https://manuel.kiessling.net/luminor-page-poc/images/hand_holding_keys_house_keychain_white_door_web.jpg" alt="Hand holding keys by a white door" class="lmn-media-hero-image"/>
+						<div class="lmn-media-hero-overlay"></div>
+						<div class="lmn-media-hero-content">
+							<h3 class="lmn-media-hero-title">Headline on full-bleed image</h3>
+							<p class="text-white/90 max-w-xl mx-auto mt-2">Apply a dark overlay to preserve readability and contrast across image variance.</p>
+						</div>
+					</div>
+
+					<div class="grid gap-8 lg:grid-cols-2 lmn-media-split">
+						<div class="lmn-media-pane">
+							<img src="https://manuel.kiessling.net/luminor-page-poc/images/team_collaboration_laptops_office_bw_web.jpg" alt="Team collaboration with laptops" class="lmn-media-image"/>
+						</div>
+						<div class="lmn-media-copy">
+							<h3 class="lmn-h3">Split layout: image left, content right</h3>
+							<p class="lmn-text mt-3">Alternate split compositions in narrative sections on content-heavy landing pages.</p>
+						</div>
+					</div>
+
+					<div class="grid gap-6 md:grid-cols-2">
+						<article class="lmn-image-card">
+							<div class="lmn-image-card-media">
+								<img src="https://manuel.kiessling.net/luminor-page-poc/images/luxury_modern_staircase_interior_pendant_lights_web.jpg" alt="Luxury interior staircase" class="lmn-media-image"/>
+							</div>
+							<div class="lmn-card-content">
+								<h4 class="lmn-h4">Image-top card</h4>
+								<p class="lmn-text-small mt-1">Use fixed aspect ratios for aligned card grids.</p>
+							</div>
+						</article>
+						<article class="lmn-image-card">
+							<div class="lmn-image-card-media">
+								<img src="https://manuel.kiessling.net/luminor-page-poc/images/modern_apartment_buildings_cream_brick_landscaping_web.jpg" alt="Modern apartment buildings with landscaping" class="lmn-media-image"/>
+							</div>
+							<div class="lmn-card-content">
+								<h4 class="lmn-h4">Property card variant</h4>
+								<p class="lmn-text-small mt-1">Suitable for inventory views and listing overviews.</p>
+							</div>
+						</article>
+					</div>
+
+					<div class="lmn-overlay-caption">
+						<img src="https://manuel.kiessling.net/luminor-page-poc/images/modern_minimalist_white_building_geometric_facade_web.jpg" alt="Modern minimalist building facade" class="lmn-media-image"/>
+						<div class="lmn-overlay-caption-gradient">
+							<p class="font-display text-lg text-white">Overlay caption with gradient readability treatment.</p>
+						</div>
+					</div>
+
+					<div class="lmn-gallery-grid">
+						<img src="https://manuel.kiessling.net/luminor-page-poc/images/hand_holding_keys_house_keychain_white_door_web.jpg" alt="Keys and door" class="lmn-gallery-item"/>
+						<img src="https://manuel.kiessling.net/luminor-page-poc/images/team_collaboration_laptops_office_bw_web.jpg" alt="Collaboration scene" class="lmn-gallery-item"/>
+						<img src="https://manuel.kiessling.net/luminor-page-poc/images/modern_apartment_buildings_cream_brick_landscaping_web.jpg" alt="Apartment buildings" class="lmn-gallery-item"/>
+					</div>
+				</div>
+			</section>
+
+			@layouts.StyleguideSection("sections", "10 - Composition Library") {
+				<div class="lmn-showcase-stack">
+					@layouts.ShowcaseGroup("Marketing-oriented compositions") {
+						<section class="lmn-hero-shell">
+							<div class="lmn-card-content text-center py-12">
+								<h3 class="lmn-h2">Hero Composition</h3>
+								<p class="lmn-text mt-3 max-w-2xl mx-auto">Combine display typography, clear hierarchy, and explicit primary/secondary actions.</p>
+								<div class="mt-6 flex flex-wrap justify-center gap-3">
+									<button class="lmn-button-default">Primary action</button>
+									<button class="lmn-button-secondary">Secondary action</button>
+								</div>
+							</div>
+						</section>
+
+						<section class="grid gap-4 lg:grid-cols-3">
+							<div class="lmn-stat-card"><div class="lmn-card-content"><p class="lmn-stat-value">98%</p><p class="lmn-stat-label">Occupancy</p></div></div>
+							<div class="lmn-stat-card"><div class="lmn-card-content"><p class="lmn-stat-value">500+</p><p class="lmn-stat-label">Managed Units</p></div></div>
+							<div class="lmn-stat-card"><div class="lmn-card-content"><p class="lmn-stat-value">24/7</p><p class="lmn-stat-label">Support</p></div></div>
+						</section>
+
+						<section class="grid gap-6 md:grid-cols-3">
+							<div class="lmn-feature-card"><h4 class="lmn-h4">Transparent Reporting</h4><p class="lmn-text-small mt-2">Clear, predictable metrics with narrative context.</p></div>
+							<div class="lmn-feature-card"><h4 class="lmn-h4">Operational Reliability</h4><p class="lmn-text-small mt-2">Consistent service quality through reusable interface components and state handling.</p></div>
+							<div class="lmn-feature-card"><h4 class="lmn-h4">Future-ready UX</h4><p class="lmn-text-small mt-2">Components scale across modules and teams without style drift.</p></div>
+						</section>
+
+						<section class="grid gap-6 md:grid-cols-2">
+							<div class="lmn-testimonial-card">
+								<blockquote class="lmn-blockquote border-l-0 pl-0">"The styleguide let us scale new features without visual inconsistency."</blockquote>
+								<p class="lmn-text-small mt-3">- Engineering Manager</p>
+							</div>
+							<div class="lmn-testimonial-card">
+								<blockquote class="lmn-blockquote border-l-0 pl-0">"Design reviews are faster because every component state is documented."</blockquote>
+								<p class="lmn-text-small mt-3">- Product Designer</p>
+							</div>
+						</section>
+
+						<section class="lmn-cta-shell text-center">
+							<h3 class="font-display text-3xl font-semibold text-white">Ready to ship consistent UI at scale?</h3>
+							<p class="mt-3 text-primary-100 max-w-2xl mx-auto">Treat this styleguide as the implementation contract between design, engineering, and QA.</p>
+							<div class="mt-6 flex flex-wrap justify-center gap-3">
+								<button class="lmn-link-as-button-default">Start implementation</button>
+								<button class="lmn-link-as-button-secondary">Review guidelines</button>
+							</div>
+						</section>
+
+						<section class="lmn-footer-shell text-center">
+							<p class="font-display text-xl text-primary-900 dark:text-primary-100">Luminor</p>
+							<p class="lmn-text-small mt-2">Composable design language for long-lived product development.</p>
+							<div class="mt-4 flex justify-center gap-5 text-sm">
+								<a href="#" class="lmn-link-secondary">Design system</a>
+								<a href="#" class="lmn-link-secondary">Guidelines</a>
+								<a href="#" class="lmn-link-secondary">Accessibility</a>
+							</div>
+						</section>
+					}
+
+					@layouts.ShowcaseGroup("App UI composition: Casework Dashboard") {
+						<section class="lmn-workbench-shell">
+							<div class="lmn-workbench-toolbar">
+								<button class="lmn-workbench-filter lmn-workbench-filter-selected">All cases <span class="lmn-badge lmn-badge-dark ml-1">20</span></button>
+								<button class="lmn-workbench-filter"><span class="lmn-workbench-status-dot lmn-workbench-status-dot-new"></span>New <span class="lmn-badge lmn-badge-info">3</span></button>
+								<button class="lmn-workbench-filter"><span class="lmn-workbench-status-dot lmn-workbench-status-dot-ongoing"></span>Ongoing <span class="lmn-badge lmn-badge-warning">5</span></button>
+								<button class="lmn-workbench-filter"><span class="lmn-workbench-status-dot lmn-workbench-status-dot-closed"></span>Closed <span class="lmn-badge lmn-badge-success">12</span></button>
+							</div>
+							<div class="lmn-workbench-grid">
+								<aside class="lmn-workbench-pane-list">
+									<div class="lmn-workbench-search"><input type="search" class="lmn-form-input" placeholder="Search cases..."/></div>
+									<ul class="lmn-ticket-list">
+										<li class="lmn-ticket-item lmn-ticket-item-selected"><p class="lmn-ticket-title">Heating outage in unit 4B</p><p class="lmn-ticket-meta">Parkblick Residenzen · URGENT</p></li>
+										<li class="lmn-ticket-item"><p class="lmn-ticket-title">Water damage affecting 3A & 3B</p><p class="lmn-ticket-meta">Flussufer Apartments · HIGH</p></li>
+										<li class="lmn-ticket-item"><p class="lmn-ticket-title">Lease extension request</p><p class="lmn-ticket-meta">Flussufer Apartments · NORMAL</p></li>
+									</ul>
+								</aside>
+								<main class="lmn-workbench-pane-detail">
+									<div class="lmn-workbench-detail-header">
+										<div class="flex flex-wrap items-center gap-3">
+											<h4 class="lmn-h4">Case FALL-2024-1847</h4>
+											<span class="lmn-badge lmn-badge-warning">In progress</span>
+											<span class="lmn-badge lmn-badge-error">Urgent</span>
+										</div>
+										<p class="lmn-text-small mt-2">Tenant communication, AI triage actions, scheduling, and resolution updates in one thread.</p>
+									</div>
+									<div class="lmn-workbench-thread lmn-thread">
+										<div class="lmn-thread-item lmn-thread-item-tenant"><p class="lmn-thread-meta">Tenant message · 08:15</p><p class="lmn-thread-copy">The heating stopped working overnight. It is very cold and we have a small child. Please help urgently.</p></div>
+										<div class="lmn-thread-item lmn-thread-item-ai"><p class="lmn-thread-meta lmn-thread-meta-ai">AI action · Triage</p><p class="lmn-thread-copy">Automatically classified as urgent maintenance and raised case priority based on risk signals.</p></div>
+										<div class="lmn-thread-item lmn-thread-item-ai"><p class="lmn-thread-meta lmn-thread-meta-ai">AI action · Draft response</p><p class="lmn-thread-copy">Prepared empathetic response with immediate ETA, temporary safety guidance, and follow-up commitments.</p></div>
+										<div class="lmn-thread-item lmn-thread-item-system"><p class="lmn-thread-meta">System update · 08:18</p><p class="lmn-thread-copy">Technician slots fetched: 10:00-12:00 (recommended), 14:00-16:00, tomorrow 08:00-10:00.</p></div>
+									</div>
+									<div class="lmn-action-tray">
+										<textarea class="lmn-form-textarea" rows="3" placeholder="Write case update..."></textarea>
+										<button class="lmn-button-default h-fit">Send update</button>
+									</div>
+								</main>
+							</div>
+						</section>
+					}
+
+					@layouts.ShowcaseGroup("App UI composition: Incident Coordination Workbench") {
+						<section class="lmn-workbench-shell">
+							<div class="lmn-workbench-toolbar">
+								<span class="lmn-badge lmn-badge-error">Urgent incident</span>
+								<span class="lmn-badge lmn-badge-warning">Cross-unit coordination</span>
+								<div class="lmn-workbench-toolbar-meta">AI assistance: 6 suggested actions</div>
+							</div>
+							<div class="lmn-workbench-grid">
+								<aside class="lmn-workbench-pane-list">
+									<ul class="lmn-ticket-list">
+										<li class="lmn-ticket-item lmn-ticket-item-selected"><p class="lmn-ticket-title">Water leak across units 3A and 3B</p><p class="lmn-ticket-meta">Coordination · Updated 07:30</p></li>
+										<li class="lmn-ticket-item"><p class="lmn-ticket-title">Elevator maintenance outage notice</p><p class="lmn-ticket-meta">Building-wide · Scheduled</p></li>
+										<li class="lmn-ticket-item"><p class="lmn-ticket-title">Emergency power interruption</p><p class="lmn-ticket-meta">Resolved · Postmortem pending</p></li>
+									</ul>
+								</aside>
+								<main class="lmn-workbench-pane-detail">
+									<div class="lmn-workbench-detail-header">
+										<h4 class="lmn-h4">Incident FALL-2024-1835 · Water damage coordination</h4>
+										<div class="lmn-sla-strip-row">
+											<div class="lmn-sla-strip lmn-sla-strip-risk"><span class="font-semibold">SLA risk</span> Response window: 42m remaining</div>
+											<div class="lmn-sla-strip lmn-sla-strip-priority"><span class="font-semibold">Priority</span> High · multi-tenant impact</div>
+										</div>
+									</div>
+									<div class="lmn-workbench-thread lmn-thread">
+										<div class="lmn-thread-item lmn-thread-item-tenant"><p class="lmn-thread-meta">Tenant 3B · 16:45</p><p class="lmn-thread-copy">Water is dripping from the bathroom ceiling and getting worse.</p></div>
+										<div class="lmn-thread-item lmn-thread-item-ai"><p class="lmn-thread-meta lmn-thread-meta-ai">AI action · Correlation</p><p class="lmn-thread-copy">Mapped unit relationship and linked 3A as potential source. Triggered parallel notification.</p></div>
+										<div class="lmn-thread-item lmn-thread-item-system"><p class="lmn-thread-meta">Technician update · 11:30</p><p class="lmn-thread-copy">Temporary repair completed. Permanent fix scheduled after replacement part arrival.</p></div>
+									</div>
+									<div class="lmn-action-tray">
+										<div class="lmn-action-tray-buttons">
+											<button class="lmn-button-default">Send coordinated update</button>
+											<button class="lmn-button-secondary">Edit draft</button>
+											<button class="lmn-button-as-link-secondary">Regenerate with AI</button>
+										</div>
+									</div>
+								</main>
+							</div>
+						</section>
+					}
+				</div>
+			}
+		</div>
+	}
+}

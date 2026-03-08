@@ -1,0 +1,45 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ About() {
+	@layouts.FullContent(i18n.T(ctx, "about.title")) {
+		<div class="max-w-3xl mx-auto py-12">
+			<h1 class="lmn-pagetitle">{ i18n.T(ctx, "about.title") }</h1>
+
+			<div class="lmn-card">
+				<div class="lmn-card-content space-y-6">
+					<div>
+						<h2 class="lmn-h3 mb-2">{ i18n.T(ctx, "about.section.architecture.title") }</h2>
+						<p class="lmn-text">
+							{ i18n.T(ctx, "about.section.architecture.body") }
+						</p>
+					</div>
+
+					<div>
+						<h2 class="lmn-h3 mb-2">{ i18n.T(ctx, "about.section.stack.title") }</h2>
+						<p class="lmn-text">
+							{ i18n.T(ctx, "about.section.stack.body") }
+						</p>
+						<div class="mt-3 flex flex-wrap gap-2">
+							<span class="lmn-badge lmn-badge-info">Go</span>
+							<span class="lmn-badge lmn-badge-info">templ</span>
+							<span class="lmn-badge lmn-badge-info">Tailwind</span>
+							<span class="lmn-badge lmn-badge-info">HTMX + Alpine</span>
+						</div>
+					</div>
+
+					<div>
+						<h2 class="lmn-h3 mb-2">{ i18n.T(ctx, "about.section.dx.title") }</h2>
+						<p class="lmn-text">
+							{ i18n.T(ctx, "about.section.dx.body") }
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}

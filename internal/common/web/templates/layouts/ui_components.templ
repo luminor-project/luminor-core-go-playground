@@ -1,0 +1,84 @@
+package layouts
+
+templ CenteredPanel(children ...templ.Component) {
+	<div class="min-h-[60vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+		<div class="w-full max-w-md space-y-8">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ AuthHeader(title, subtitle string) {
+	<div class="text-center">
+		<h1 class="lmn-h1">{ title }</h1>
+		<p class="lmn-text-small mt-2">{ subtitle }</p>
+	</div>
+}
+
+templ StandardAlert(kind, text string) {
+	if kind == "error" {
+		<div class="lmn-alert lmn-alert-danger">
+			<div class="lmn-alert-body">
+				<p class="lmn-alert-danger-text">{ text }</p>
+			</div>
+		</div>
+	}
+	if kind == "success" {
+		<div class="lmn-alert lmn-alert-success">
+			<div class="lmn-alert-body">
+				<p class="lmn-alert-success-text">{ text }</p>
+			</div>
+		</div>
+	}
+	if kind == "info" {
+		<div class="lmn-alert lmn-alert-info">
+			<div class="lmn-alert-body">
+				<p class="lmn-alert-info-text">{ text }</p>
+			</div>
+		</div>
+	}
+}
+
+templ SurfaceCard(children ...templ.Component) {
+	<div class="lmn-card">
+		<div class="lmn-card-content">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ FormField(id, name, label, inputType, placeholder, autocomplete, value string, required bool) {
+	<div>
+		<label for={ id } class="lmn-form-label">{ label }</label>
+		<input
+			id={ id }
+			name={ name }
+			type={ inputType }
+			autocomplete={ autocomplete }
+			placeholder={ placeholder }
+			value={ value }
+			class="lmn-form-input"
+			if required {
+				required
+			}
+		/>
+	</div>
+}
+
+templ StyleguideSection(id, title string, children ...templ.Component) {
+	<section id={ id } class="lmn-styleguide-section">
+		<div class="lmn-card-title">
+			<h2 class="lmn-card-title-text">{ title }</h2>
+		</div>
+		<div class="lmn-card-content">
+			{ children... }
+		</div>
+	</section>
+}
+
+templ ShowcaseGroup(title string, children ...templ.Component) {
+	<div class="lmn-showcase-group">
+		<h3 class="lmn-h4 lmn-showcase-group-title">{ title }</h3>
+		{ children... }
+	</div>
+}

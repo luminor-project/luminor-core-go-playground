@@ -1,0 +1,185 @@
+package layouts
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/flash"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ FullContent(title string) {
+	<!DOCTYPE html>
+	<html lang={ string(i18n.LocaleFromContext(ctx)) } class="h-full">
+	<head>
+		<meta charset="UTF-8"/>
+		<title>{ title }</title>
+		<link rel="canonical" href={ i18n.AlternateLocalizedPath(ctx, i18n.LocaleFromContext(ctx)) }/>
+		for _, locale := range i18n.SupportedLocales() {
+			<link rel="alternate" hreflang={ string(locale) } href={ i18n.AlternateLocalizedPath(ctx, locale) }/>
+		}
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+		<link rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+		<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script>
+			if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				document.documentElement.classList.add('dark');
+			}
+		</script>
+	</head>
+	<body class="h-full text-stone-900 dark:text-stone-100 transition-colors duration-150">
+		<div x-data="{ mobileSidebarOpen: false }" class="min-h-screen flex flex-col">
+			<!-- Header -->
+			<header class="w-full lmn-nav-bg border-b lmn-nav-border">
+				<div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+					<div class="flex items-center flex-shrink-0 mr-6">
+						@brandLogo()
+					</div>
+
+					<!-- Large viewport nav -->
+					<nav class="hidden lg:flex items-center gap-x-4">
+						if showLivingStyleguide() {
+							<a href={ i18n.LocalizedPath(ctx, "/living-styleguide") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.styleguide")) }>{ i18n.T(ctx, "nav.styleguide") }</a>
+						}
+						if auth.IsAuthenticated(ctx) {
+							<a href={ i18n.LocalizedPath(ctx, "/dashboard") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.yourAccount")) }>{ i18n.T(ctx, "nav.yourAccount") }</a>
+							<a href={ i18n.LocalizedPath(ctx, "/organization") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.organization")) }>{ i18n.T(ctx, "nav.organization") }</a>
+						} else {
+							<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
+							<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
+						}
+						@darkModeToggle()
+					</nav>
+
+					<!-- Small viewport CTAs -->
+					<div class="lg:hidden flex items-center gap-2">
+						@darkModeToggle()
+						<button
+							type="button"
+							class="lmn-button-secondary px-2.5 py-2"
+							@click="mobileSidebarOpen = !mobileSidebarOpen"
+						>
+							<span>{ i18n.T(ctx, "common.menu") }</span>
+							<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+							</svg>
+						</button>
+					</div>
+				</div>
+			</header>
+
+			<!-- Mobile nav overlay -->
+			<div
+				x-show="mobileSidebarOpen"
+				x-transition:enter="transition-opacity ease-linear duration-150"
+				x-transition:enter-start="opacity-0"
+				x-transition:enter-end="opacity-100"
+				x-transition:leave="transition-opacity ease-linear duration-150"
+				x-transition:leave-start="opacity-100"
+				x-transition:leave-end="opacity-0"
+				x-cloak
+				class="fixed inset-0 z-50 lg:hidden"
+				role="dialog"
+				aria-modal="true"
+			>
+				<div class="relative flex flex-col w-full h-full lmn-nav-bg">
+					<!-- Close button -->
+					<div class="absolute top-0 right-0 h-16 flex items-center px-4 sm:px-6 z-10">
+						<button
+							type="button"
+							class="rounded-full w-9 h-9 flex items-center justify-center text-stone-600 hover:text-primary-700 dark:text-stone-400 dark:hover:text-primary-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none cursor-pointer"
+							@click="mobileSidebarOpen = false"
+						>
+							<span class="sr-only">Close menu</span>
+							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+							</svg>
+						</button>
+					</div>
+					<!-- Logo -->
+					<div class="flex h-16 shrink-0 items-center px-6">
+						@brandLogo()
+					</div>
+					<!-- Nav links -->
+					<div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
+						<nav class="flex flex-1 flex-col">
+							<ul role="list" class="flex flex-1 flex-col gap-y-2">
+								if showLivingStyleguide() {
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/living-styleguide") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.styleguide")) }>{ i18n.T(ctx, "nav.styleguide") }</a>
+									</li>
+								}
+								if auth.IsAuthenticated(ctx) {
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/dashboard") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.yourAccount")) }>{ i18n.T(ctx, "nav.yourAccount") }</a>
+									</li>
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/organization") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.organization")) }>{ i18n.T(ctx, "nav.organization") }</a>
+									</li>
+								} else {
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
+									</li>
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
+									</li>
+								}
+							</ul>
+						</nav>
+					</div>
+				</div>
+			</div>
+
+			<main class="py-10 flex-grow">
+				<div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+					@fullContentFlashMessages()
+					<div class="content-fade-up">
+						{ children... }
+					</div>
+				</div>
+			</main>
+
+			<!-- Footer -->
+			<footer class="bg-stone-100 dark:bg-stone-900/80 border-t border-stone-200 dark:border-stone-700 mt-16 py-10">
+				<div class="container mx-auto px-4 text-center">
+					<p class="font-display text-lg text-primary-900 dark:text-primary-100">Luminor</p>
+					<p class="mt-2 text-sm text-stone-600 dark:text-stone-400">
+						{ i18n.T(ctx, "footer.tagline") }
+					</p>
+					<p class="mt-4 text-xs text-stone-500 dark:text-stone-500">{ i18n.T(ctx, "footer.copyright") }</p>
+				</div>
+			</footer>
+		</div>
+		<script src="/static/js/htmx.min.js"></script>
+		<script src="/static/js/alpine.min.js" defer></script>
+		<script src="/static/js/app.js"></script>
+	</body>
+	</html>
+}
+
+templ fullContentFlashMessages() {
+	for _, msg := range flash.FromContext(ctx) {
+		if msg.Type == flash.TypeSuccess {
+			<div class="lmn-alert lmn-alert-success mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-success-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+		if msg.Type == flash.TypeError {
+			<div class="lmn-alert lmn-alert-danger mb-6">
+				<div class="lmn-alert-body">
+					<p class="lmn-alert-danger-text">{ msg.Content }</p>
+				</div>
+			</div>
+		}
+	}
+}
+
+func topNavLinkClass(pageTitle, target string) string {
+	base := "lmn-nav-link-fullcontent"
+	if pageTitle == target {
+		return base + " lmn-nav-link-fullcontent-active"
+	}
+	return base
+}

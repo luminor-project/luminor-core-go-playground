@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+#MISE description="Open the web application in your browser (if GUI is available)"
+set -euo pipefail
+
+DEFAULT_URL="http://localhost:8090"
+
+resolve_url() {
+    local line host_port
+
+    line="$(mise run docker-compose -- ps app --format '{{.Publishers}}' 2>/dev/null | tr -d '\r' || true)"
+    if [[ -z "${line}" || "${line}" == "[]" ]]; then
+        echo "${DEFAULT_URL}"
+        return
+    fi
+
+    host_port="$(printf '%s' "${line}" | sed -E 's/.*PublishedPort:([0-9]+).*/\1/' || true)"
+    if [[ "${host_port}" =~ ^[0-9]+$ ]]; then
+        echo "http://localhost:${host_port}"
+        return
+    fi
+
+    echo "${DEFAULT_URL}"
+}
+
+is_reachable() {
+    local url="$1"
+
+    # Be conservative: if we cannot verify reachability, treat as "not ready".
+    if ! command -v curl >/dev/null 2>&1; then
+        return 1
+    fi
+
+    curl -s --max-time 2 -o /dev/null "${url}"
+}
+
+open_browser() {
+    local url="$1"
+    local opened=0
+
+    case "${OSTYPE:-}" in
+    darwin*)
+        # A missing launchd context is a strong signal for a non-GUI shell.
+        if launchctl managername >/dev/null 2>&1; then
+            if open "${url}" >/dev/null 2>&1; then
+                opened=1
+            fi
+        fi
+        ;;
+    linux*)
+        # Attempt only when we have desktop session evidence.
+        if command -v xdg-open >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}${XDG_CURRENT_DESKTOP:-}" ]]; then
+            if xdg-open "${url}" >/dev/null 2>&1; then
+                opened=1
+            fi
+        fi
+        ;;
+    cygwin* | msys* | win32*)
+        if command -v cmd >/dev/null 2>&1; then
+            if cmd /c start "${url}" >/dev/null 2>&1; then
+                opened=1
+            fi
+        fi
+        ;;
+    esac
+
+    if [[ "${opened}" -eq 1 ]]; then
+        echo "Opened ${url} in your browser."
+    else
+        echo "Could not confidently open a GUI browser in this environment."
+        echo "Open this URL manually: ${url}"
+    fi
+}
+
+URL="$(resolve_url)"
+if is_reachable "${URL}"; then
+    open_browser "${URL}"
+else
+    echo "Application is not reachable yet at ${URL}."
+    echo "Start it first (for example: 'mise run dev'), then run 'mise run browser' again."
+fi

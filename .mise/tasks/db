@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Connect to the database"
+set -euo pipefail
+
+# Run psql in the postgres service container so no host/client install is needed.
+exec_args=(-it)
+if [[ ! -t 0 || ! -t 1 ]]; then
+    exec_args=(-T)
+fi
+
+mise run docker-compose -- exec "${exec_args[@]}" db-business psql \
+    -U "${POSTGRES_USER:-luminor}" \
+    -d "${POSTGRES_DB:-luminor}" \
+    "$@"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run RAG database migrations"
+set -euo pipefail
+
+mise run in-app-container go run ./cmd/migrate rag "${@:-up}"

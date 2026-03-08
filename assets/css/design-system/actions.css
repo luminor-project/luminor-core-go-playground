@@ -1,0 +1,55 @@
+.lmn-link-default {
+    @apply text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 hover:underline underline-offset-2 transition-colors duration-150;
+}
+
+.lmn-link-secondary {
+    @apply text-stone-700 dark:text-stone-300 hover:text-primary-700 dark:hover:text-primary-300 hover:underline underline-offset-2 transition-colors duration-150;
+}
+
+.lmn-link-danger {
+    @apply text-danger-700 dark:text-danger-300 hover:text-danger-800 dark:hover:text-danger-200 hover:underline underline-offset-2 transition-colors duration-150;
+}
+
+.lmn-link-default-disabled {
+    @apply text-stone-400 dark:text-stone-600 cursor-not-allowed;
+}
+
+.lmn-button-base {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none;
+}
+
+.lmn-button-default,
+.lmn-link-as-button-default {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none bg-primary-800 text-white shadow-sm hover:bg-primary-900 active:bg-primary-950 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:bg-primary-700 dark:hover:bg-primary-600 dark:focus-visible:ring-offset-stone-900;
+}
+
+.lmn-button-secondary,
+.lmn-link-as-button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 shadow-sm hover:bg-stone-50 dark:hover:bg-stone-700 hover:text-stone-800 dark:hover:text-stone-100 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-stone-900;
+}
+
+.lmn-button-danger,
+.lmn-link-as-button-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none border border-danger-300 bg-danger-50 dark:bg-danger-950/30 text-danger-700 dark:text-danger-300 hover:bg-danger-100 dark:hover:bg-danger-900/40 focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-stone-900;
+}
+
+.lmn-button-default-disabled,
+.lmn-link-as-button-default-disabled {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus-visible:outline-none bg-stone-300 dark:bg-stone-700 text-stone-500 dark:text-stone-400 cursor-not-allowed;
+}
+
+.lmn-button-as-link-default {
+    @apply text-primary-700 dark:text-primary-300 hover:text-primary-900 dark:hover:text-primary-100 hover:underline underline-offset-2 transition-colors duration-150 border-0 bg-transparent p-0 cursor-pointer;
+}
+
+.lmn-button-as-link-secondary {
+    @apply text-stone-700 dark:text-stone-300 hover:text-primary-700 dark:hover:text-primary-300 hover:underline underline-offset-2 transition-colors duration-150 border-0 bg-transparent p-0 cursor-pointer;
+}
+
+.lmn-button-as-link-danger {
+    @apply text-danger-700 dark:text-danger-300 hover:text-danger-800 dark:hover:text-danger-200 hover:underline underline-offset-2 transition-colors duration-150 border-0 bg-transparent p-0 cursor-pointer;
+}
+
+.lmn-button-as-link-default-disabled {
+    @apply text-stone-400 dark:text-stone-600 cursor-not-allowed border-0 bg-transparent p-0;
+}

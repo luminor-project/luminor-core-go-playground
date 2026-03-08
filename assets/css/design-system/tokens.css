@@ -1,0 +1,11 @@
+/* Luminor design system v2 tokens */
+
+:root {
+    --lmn-radius-sm: 0.5rem;
+    --lmn-radius-md: 0.75rem;
+    --lmn-radius-lg: 1rem;
+    --lmn-radius-xl: 1.25rem;
+    --lmn-shadow-sm: 0 4px 12px rgb(44 77 64 / 0.08);
+    --lmn-shadow-lg: 0 18px 38px rgb(44 77 64 / 0.15);
+    --lmn-ring: 0 0 0 3px rgb(98 175 144 / 0.2);
+}

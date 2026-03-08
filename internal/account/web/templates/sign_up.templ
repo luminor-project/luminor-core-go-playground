@@ -1,0 +1,35 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ SignUp(csrfToken, lastEmail, errorMsg string) {
+	@layouts.AppShell(i18n.T(ctx, "auth.signUp.pageTitle")) {
+		@layouts.CenteredPanel() {
+			@layouts.AuthHeader(i18n.T(ctx, "auth.signUp.heading"), i18n.T(ctx, "auth.signUp.subtitle"))
+			if errorMsg != "" {
+				@layouts.StandardAlert("error", errorMsg)
+			}
+			@layouts.SurfaceCard() {
+				<form action={ i18n.LocalizedPath(ctx, "/sign-up") } method="post" class="space-y-6">
+					@layouts.FormField("email", "email", i18n.T(ctx, "auth.common.email"), "email", i18n.T(ctx, "auth.common.emailPlaceholder"), "email", lastEmail, true)
+					@layouts.FormField("password", "password", i18n.T(ctx, "auth.common.password"), "password", i18n.T(ctx, "auth.common.passwordMin"), "new-password", "", true)
+					@layouts.FormField("password_confirm", "password_confirm", i18n.T(ctx, "auth.common.confirmPassword"), "password", i18n.T(ctx, "auth.common.repeatPassword"), "new-password", "", true)
+					<button type="submit" class="lmn-button-default w-full">{ i18n.T(ctx, "auth.signUp.submit") }</button>
+				</form>
+			}
+			<p class="text-center lmn-text-small">
+				{ i18n.T(ctx, "auth.signUp.hasAccount") }
+				<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class="lmn-link-default font-semibold">{ i18n.T(ctx, "auth.signUp.signIn") }</a>
+			</p>
+			<p class="text-center text-xs text-stone-500 dark:text-stone-500">
+				{ i18n.T(ctx, "auth.signUp.termsPrefix") }
+				<a href="#" class="lmn-link-secondary">{ i18n.T(ctx, "auth.signUp.terms") }</a>
+				{ " " + i18n.T(ctx, "auth.signUp.and") + " " }
+				<a href="#" class="lmn-link-secondary">{ i18n.T(ctx, "auth.signUp.privacy") }</a>.
+			</p>
+		}
+	}
+}

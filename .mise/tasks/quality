@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#MISE description="Run lint, archtest, and format checks"
+set -euo pipefail
+
+echo "==> Installing Node dependencies..."
+mise run in-app-container npm ci
+
+echo "==> Running frontend lint..."
+mise run in-app-container npm run lint:frontend
+
+echo "==> Running frontend/docs/config format checks..."
+mise run in-app-container npm run format:check
+
+echo "==> Running go vet..."
+mise run in-app-container go vet ./cmd/... ./internal/... ./tools/...
+
+echo "==> Running golangci-lint..."
+mise run in-app-container go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+mise run in-app-container golangci-lint run
+
+echo "==> Running architecture tests..."
+mise run in-app-container go run ./tools/archtest
+
+echo "==> Checking formatting..."
+UNFORMATTED=$(mise run in-app-container gofmt -l . 2>/dev/null || true)
+if [ -n "$UNFORMATTED" ]; then
+    echo "The following files are not formatted:"
+    echo "$UNFORMATTED"
+    exit 1
+fi
+
+echo "Quality checks passed."

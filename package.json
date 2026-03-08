@@ -1,0 +1,22 @@
+{
+  "name": "luminor-core-go-playground",
+  "private": true,
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/cli": "4.2.1",
+    "alpinejs": "3.15.8",
+    "eslint": "^10.0.2",
+    "htmx.org": "2.0.8",
+    "prettier": "^3.8.1",
+    "tailwindcss": "4.2.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "scripts": {
+    "lint:frontend": "eslint \"tests/e2e/**/*.ts\" \"*.js\" --max-warnings=0",
+    "lint:frontend:fix": "eslint \"tests/e2e/**/*.ts\" \"*.js\" --fix",
+    "format:check": "prettier --check \"**/*.{js,ts,css,json,yml,yaml,md}\"",
+    "format:write": "prettier --write \"**/*.{js,ts,css,json,yml,yaml,md}\"",
+    "quality:frontend": "npm run lint:frontend && npm run format:check"
+  }
+}

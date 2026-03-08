@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#MISE description="Bootstrap local development environment"
+set -e
+
+echo "==> Building Docker containers..."
+mise run docker-compose -- build
+
+echo "==> Starting Docker containers..."
+mise run docker-compose -- up -d
+
+echo "==> Downloading Go dependencies..."
+mise run in-app-container go mod download all
+
+echo "==> Generating templ templates..."
+mise run in-app-container templ generate
+
+echo "==> Preparing static assets..."
+mise run prepare-assets
+
+echo "==> Running migrations..."
+mise run in-app-container go run ./cmd/migrate business up
+mise run in-app-container go run ./cmd/migrate rag up
+
+echo "==> Running quality checks..."
+mise run quality || true
+
+echo "==> Running tests..."
+mise run tests || true
+
+echo "==> Starting app server in background..."
+mise run in-app-container air &
+DEV_PID=$!
+
+echo "==> Waiting for app to become ready..."
+for i in $(seq 1 30); do
+    if curl -s --max-time 2 -o /dev/null http://localhost:8080; then
+        echo "App is ready!"
+        mise run browser || true
+        echo ""
+        echo "Setup complete! The dev server is running (PID $DEV_PID)."
+        echo "Press Ctrl+C to stop, or run 'mise run dev' for the full dev experience."
+        wait "$DEV_PID"
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "App did not become ready within 30 seconds."
+echo "The dev server is still starting (PID $DEV_PID). Check its output."
+wait "$DEV_PID"

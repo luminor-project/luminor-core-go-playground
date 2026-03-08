@@ -1,0 +1,5 @@
+# No host tools required — Go and Node run inside the Docker container.
+# Only Docker and mise are needed on the host.
+
+[task_config]
+includes = [".mise/tasks"]

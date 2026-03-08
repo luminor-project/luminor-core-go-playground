@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#MISE description="Run docker compose with Linux sudo fallback"
+set -euo pipefail
+
+need_sudo=false
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+    # Docker Desktop for Linux usually runs via the desktop-linux context and
+    # does not require root. Keep that path untouched.
+    context="$(docker context show 2>/dev/null || true)"
+    if [[ "${context}" != "desktop-linux" ]] && [[ "${EUID}" -ne 0 ]]; then
+        # If the classic root-owned Docker socket is not writable, escalate.
+        if [[ -S /var/run/docker.sock && ! -w /var/run/docker.sock ]]; then
+            need_sudo=true
+        fi
+    fi
+fi
+
+project_dir="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# On SELinux systems the .git directory is not readable inside the container,
+# which breaks Go's VCS stamping.  Disable it only when needed.
+if [[ "$(uname -s)" == "Linux" ]] && command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce 2>/dev/null)" != "Disabled" ]]; then
+    export GOFLAGS="-buildvcs=false"
+fi
+
+if [[ "${need_sudo}" == "true" ]]; then
+    exec sudo GOFLAGS="${GOFLAGS:-}" docker compose --project-directory "${project_dir}" "$@"
+fi
+
+exec docker compose --project-directory "${project_dir}" "$@"

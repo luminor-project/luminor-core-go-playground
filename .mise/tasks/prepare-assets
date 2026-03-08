@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Build CSS and prepare static JS assets"
+set -euo pipefail
+
+echo "==> Ensuring static directories exist..."
+mkdir -p static/css static/js
+
+echo "==> Installing pinned Node dependencies..."
+mise run in-app-container sh -lc "cd /app && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm ci"
+
+echo "==> Building Tailwind CSS..."
+mise run in-app-container sh -lc "cd /app && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm exec -- tailwindcss -i assets/css/app.css -o static/css/app.css --minify"
+
+echo "==> Copying app JavaScript..."
+cp assets/js/app.js static/js/app.js
+
+echo "==> Copying vendor JavaScript from node_modules (htmx + Alpine.js)..."
+cp node_modules/htmx.org/dist/htmx.min.js static/js/htmx.min.js
+cp node_modules/alpinejs/dist/cdn.min.js static/js/alpine.min.js
+
+echo "Asset preparation complete."

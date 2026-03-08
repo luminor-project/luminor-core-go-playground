@@ -1,0 +1,51 @@
+.lmn-page-title,
+.lmn-pagetitle {
+    @apply font-display text-4xl sm:text-5xl font-semibold tracking-tight text-primary-900 dark:text-primary-100 mb-8;
+}
+
+.lmn-section-title,
+.lmn-h2 {
+    @apply font-display text-3xl sm:text-4xl font-semibold tracking-tight text-primary-900 dark:text-primary-100;
+}
+
+.lmn-h1,
+.lmn-h3,
+.lmn-h4 {
+    @apply font-display tracking-tight text-primary-900 dark:text-primary-100;
+}
+
+.lmn-h1 {
+    @apply text-4xl sm:text-5xl font-semibold;
+}
+
+.lmn-h3 {
+    @apply text-2xl font-semibold;
+}
+
+.lmn-h4 {
+    @apply text-xl font-semibold;
+}
+
+.lmn-h1-gradient {
+    @apply font-display text-4xl sm:text-5xl font-semibold tracking-tight;
+}
+
+.lmn-h1-gradient-span {
+    @apply bg-gradient-to-r from-primary-800 via-primary-700 to-accent-700 dark:from-primary-200 dark:via-primary-300 dark:to-accent-300 bg-clip-text text-transparent;
+}
+
+.lmn-text {
+    @apply text-base leading-relaxed text-stone-700 dark:text-stone-300;
+}
+
+.lmn-text-small {
+    @apply text-sm leading-relaxed text-stone-500 dark:text-stone-400;
+}
+
+.lmn-blockquote {
+    @apply border-l-4 border-accent-500 pl-5 font-display text-xl italic text-stone-700 dark:text-stone-300;
+}
+
+.lmn-list {
+    @apply list-disc pl-6 space-y-1 text-stone-700 dark:text-stone-300;
+}

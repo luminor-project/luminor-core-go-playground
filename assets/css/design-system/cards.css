@@ -1,0 +1,41 @@
+.lmn-card {
+    @apply rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/60 shadow-sm overflow-hidden;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.lmn-card-title {
+    @apply px-6 py-4 border-b border-stone-200 dark:border-stone-700 flex items-center justify-between;
+}
+
+.lmn-card-title-content {
+    @apply flex flex-col gap-1 min-w-0;
+}
+
+.lmn-card-title-text {
+    @apply font-display text-xl font-semibold text-primary-900 dark:text-primary-100;
+}
+
+.lmn-card-subtitle {
+    @apply text-sm text-stone-500 dark:text-stone-400;
+}
+
+.lmn-card-content {
+    @apply p-6;
+}
+
+.lmn-card-text {
+    @apply text-base leading-relaxed text-stone-700 dark:text-stone-300;
+}
+
+.lmn-card-actions {
+    @apply mt-5 flex items-center justify-end gap-3;
+}
+
+.lmn-card-hover {
+    @apply hover:shadow-lg hover:border-primary-200 dark:hover:border-primary-800;
+    transform: translateY(0);
+}
+
+.lmn-card-hover:hover {
+    transform: translateY(-1px);
+}

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Run build + non-drift quality + all tests"
+set -e
+
+mise run build
+mise run quality
+mise run security
+mise run tests
+mise run tests-integration
+mise run tests-e2e
+
+echo ""
+echo "All checks passed!"

@@ -1,0 +1,111 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    container_name: lcgp_app
+    volumes:
+      - .:/app:z
+      - go_mod_cache:/root/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      APP_ENV: development
+      PORT: "8090"
+      DATABASE_URL: postgres://luminor:luminor@db-business:5432/luminor?sslmode=disable
+      SESSION_KEY: change-me-in-production-32bytes!
+      CSRF_KEY: change-me-in-production-32bytes!
+      BASE_URL: http://localhost:8090
+      GOFLAGS: "${GOFLAGS:-}"
+      LOCAL_INFERENCE_URL: http://local-inference:11434
+      EMBED_MODEL: nomic-embed-text
+      CHAT_MODEL: "llama3.1:8b"
+      RAG_DATABASE_URL: postgres://luminor:luminor@db-rag:5432/luminor_rag?sslmode=disable
+    depends_on:
+      db-business:
+        condition: service_healthy
+      db-rag:
+        condition: service_healthy
+      local-inference:
+        condition: service_started
+    networks:
+      - default
+    restart: unless-stopped
+
+  local-inference:
+    image: ollama/ollama:latest
+    container_name: lcgp_local_inference
+    volumes:
+      - local_inference_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11435:11434"
+    networks:
+      - default
+    restart: unless-stopped
+    # GPU support: uncomment the following for NVIDIA GPU acceleration
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  db-business:
+    image: postgres:17
+    container_name: lcgp_db_business
+    environment:
+      POSTGRES_DB: luminor
+      POSTGRES_USER: luminor
+      POSTGRES_PASSWORD: luminor
+    volumes:
+      - business_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5442:5432"
+    networks:
+      - default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luminor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-rag:
+    image: pgvector/pgvector:pg17
+    container_name: lcgp_db_rag
+    environment:
+      POSTGRES_DB: luminor_rag
+      POSTGRES_USER: luminor
+      POSTGRES_PASSWORD: luminor
+    volumes:
+      - rag_data:/var/lib/postgresql/data
+      - ./docker/dev/init-rag-db.sh:/docker-entrypoint-initdb.d/init-rag-db.sh:ro
+    ports:
+      - "127.0.0.1:5443:5432"
+    networks:
+      - default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luminor -d luminor_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  default:
+    name: lcgp_default
+    driver: bridge
+
+volumes:
+  business_data:
+    name: lcgp_data_business
+  rag_data:
+    name: lcgp_data_rag
+  go_mod_cache:
+    name: lcgp_go_mod_cache
+  go_build_cache:
+    name: lcgp_go_build_cache
+  local_inference_data:
+    name: lcgp_data_local_inference

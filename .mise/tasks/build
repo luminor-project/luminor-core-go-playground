@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Generate templ + build Tailwind CSS + compile Go binary"
+set -euo pipefail
+
+echo "==> Generating templ templates..."
+mise run in-app-container templ generate
+
+echo "==> Preparing static assets..."
+mise run prepare-assets
+
+echo "==> Building Go binary..."
+mise run in-app-container go build -o bin/server ./cmd/server
+
+echo "Build complete: bin/server"

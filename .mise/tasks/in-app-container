@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Run a command in the app container"
+
+mise run docker-compose -- exec -e MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml -T app "$@"

@@ -1,0 +1,35 @@
+package templates
+
+import (
+	"fmt"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ AcceptInvitation(invitationID, organizationName, ownerName, csrfToken string) {
+	@layouts.AppShell(i18n.T(ctx, "organization.invitation.accept.pageTitle")) {
+		@layouts.CenteredPanel() {
+			@layouts.AuthHeader(i18n.T(ctx, "organization.invitation.accept.heading"), i18n.T(ctx, "organization.invitation.accept.subtitle"))
+			@layouts.SurfaceCard() {
+				<div class="text-center mb-6">
+					<p class="lmn-text mb-2">{ i18n.T(ctx, "organization.invitation.accept.invitedBy", "owner", ownerName) }</p>
+					if organizationName != "" {
+						<p class="lmn-text-small">
+							{ i18n.T(ctx, "organization.invitation.accept.organizationLabel") }: <span class="font-medium text-stone-900 dark:text-stone-100">{ organizationName }</span>
+						</p>
+					}
+				</div>
+				<form action={ templ.SafeURL(i18n.LocalizedPath(ctx, fmt.Sprintf("/organization/invitation/%s", invitationID))) } method="post" class="space-y-4">
+					<button type="submit" class="lmn-button-default w-full">{ i18n.T(ctx, "organization.invitation.accept.submit") }</button>
+				</form>
+				<p class="lmn-text-small mt-4 text-center">
+					{ i18n.T(ctx, "organization.invitation.accept.signInRequired") }
+				</p>
+			}
+			<p class="text-center lmn-text-small">
+				<a href={ i18n.LocalizedPath(ctx, "/") } class="lmn-link-default font-medium">{ i18n.T(ctx, "common.backToHomepage") }</a>
+			</p>
+		}
+	}
+}

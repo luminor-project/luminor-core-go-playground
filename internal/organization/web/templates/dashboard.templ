@@ -1,0 +1,266 @@
+package templates
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/organization/facade"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+type DashboardData struct {
+	Organizations              []facade.OrganizationDTO
+	OrganizationName           string
+	CurrentOrganizationRawName string
+	CanRename                  bool
+	CanInvite                  bool
+	IsOwner                    bool
+	Members                    []facade.MemberDTO
+	Groups                     []facade.GroupDTO
+	PendingInvitations         []facade.InvitationDTO
+	CSRFToken                  string
+}
+
+func memberInGroup(memberGroupIDs []string, groupID string) bool {
+	for _, id := range memberGroupIDs {
+		if id == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+func countGroupMembers(members []facade.MemberDTO, groupID string) int {
+	count := 0
+	for _, m := range members {
+		if memberInGroup(m.GroupIDs, groupID) {
+			count++
+		}
+	}
+	return count
+}
+
+templ Dashboard(data DashboardData) {
+	@layouts.AppShell(i18n.T(ctx, "organization.pageTitle")) {
+		<div class="max-w-4xl mx-auto py-8">
+			<h1 class="lmn-pagetitle">{ i18n.T(ctx, "organization.pageTitle") }</h1>
+
+			<!-- Active Organization Card -->
+			<div class="lmn-card">
+				<div class="lmn-card-title">
+					<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.active.title") }</h2>
+				</div>
+				<div class="lmn-card-content">
+					if data.OrganizationName != "" {
+						<p class="text-stone-900 dark:text-stone-100 font-medium text-lg mb-2">{ data.OrganizationName }</p>
+
+						if data.CanRename {
+							<form action={ i18n.LocalizedPath(ctx, "/organization/rename") } method="post" class="mt-4">
+								<div class="flex gap-2">
+									<input
+										type="text"
+										name="name"
+										placeholder={ i18n.T(ctx, "organization.rename.placeholder") }
+										value={ data.CurrentOrganizationRawName }
+										class="lmn-form-input flex-1"
+									/>
+									<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "organization.rename.submit") }</button>
+								</div>
+							</form>
+						}
+					} else {
+						<p class="lmn-text-small mb-4">{ i18n.T(ctx, "organization.active.none") }</p>
+					}
+				</div>
+			</div>
+
+			<!-- Invite Members Card -->
+			if data.CanInvite {
+				<div class="lmn-card mt-6">
+					<div class="lmn-card-title">
+						<div class="lmn-card-title-content">
+							<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.invite.title") }</h2>
+							<p class="lmn-card-subtitle">{ i18n.T(ctx, "organization.invite.subtitle") }</p>
+						</div>
+					</div>
+					<div class="lmn-card-content">
+						<form action={ i18n.LocalizedPath(ctx, "/organization/invite") } method="post">
+							<div class="flex gap-2">
+								<input
+									type="email"
+									name="email"
+									placeholder={ i18n.T(ctx, "organization.invite.placeholder") }
+									required
+									class="lmn-form-input flex-1"
+								/>
+								<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "organization.invite.send") }</button>
+							</div>
+						</form>
+
+						if len(data.PendingInvitations) > 0 {
+							<div class="mt-6 pt-4 border-t border-stone-200 dark:border-stone-700">
+								<h3 class="lmn-text-small font-medium mb-3">{ i18n.T(ctx, "organization.invite.pending") }</h3>
+								<div class="space-y-2">
+									for _, inv := range data.PendingInvitations {
+										<div class="flex items-center justify-between py-2 px-3 bg-stone-50 dark:bg-stone-800/60 rounded-lg">
+											<span class="lmn-text-small">{ inv.Email }</span>
+											<div class="flex items-center gap-3">
+												<span class="text-xs text-stone-500 dark:text-stone-400">
+													{ i18n.T(ctx, "organization.invite.sentOn", "date", i18n.FormatDateShort(ctx, inv.CreatedAt)) }
+												</span>
+												<form action={ templ.SafeURL(i18n.LocalizedPath(ctx, fmt.Sprintf("/organization/invitation/%s/resend", inv.ID))) } method="post" class="inline">
+													<button type="submit" class="lmn-button-as-link-default text-xs">{ i18n.T(ctx, "organization.invite.resend") }</button>
+												</form>
+											</div>
+										</div>
+									}
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			}
+
+			<!-- Members Card -->
+			if len(data.Members) > 0 {
+				<div class="lmn-card mt-6">
+					<div class="lmn-card-title">
+						<div class="lmn-card-title-content">
+							<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.members.title") }</h2>
+							<p class="lmn-card-subtitle">{ i18n.TPlural(ctx, "organization.members.count", len(data.Members)) }</p>
+						</div>
+					</div>
+					<div class="lmn-card-content">
+						<div class="divide-y divide-stone-200 dark:divide-stone-700">
+							for _, member := range data.Members {
+								<div class="py-4">
+									<div class="flex items-start justify-between gap-4">
+										<div class="flex items-center gap-3">
+											<div class="w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center flex-shrink-0">
+												<span class="text-sm font-medium text-stone-600 dark:text-stone-300">
+													{ strings.ToUpper(member.DisplayName[:1]) }
+												</span>
+											</div>
+											<div>
+												<p class="font-medium text-stone-900 dark:text-stone-100 flex items-center gap-2 flex-wrap">
+													{ member.DisplayName }
+													if member.IsOwner {
+														<span class="lmn-badge lmn-badge-warning">{ i18n.T(ctx, "organization.members.owner") }</span>
+													}
+													if member.IsCurrentUser {
+														<span class="lmn-badge lmn-badge-info">{ i18n.T(ctx, "organization.members.you") }</span>
+													}
+												</p>
+												<p class="text-xs text-stone-500 dark:text-stone-400">{ member.Email }</p>
+												if len(data.Groups) > 0 {
+													<div class="mt-2 flex flex-wrap gap-1">
+														for _, group := range data.Groups {
+															if memberInGroup(member.GroupIDs, group.ID) {
+																<span class="lmn-badge lmn-badge-info">{ group.Name }</span>
+															}
+														}
+													</div>
+												}
+											</div>
+										</div>
+									</div>
+								</div>
+							}
+						</div>
+					</div>
+				</div>
+			}
+
+			<!-- Groups Card -->
+			if len(data.Groups) > 0 {
+				<div class="lmn-card mt-6">
+					<div class="lmn-card-title">
+						<div class="lmn-card-title-content">
+							<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.groups.title") }</h2>
+							<p class="lmn-card-subtitle">{ i18n.TPlural(ctx, "organization.groups.count", len(data.Groups)) }</p>
+						</div>
+					</div>
+					<div class="lmn-card-content">
+						<div class="divide-y divide-stone-200 dark:divide-stone-700">
+							for _, group := range data.Groups {
+								<div class="py-3 flex items-center justify-between">
+									<div>
+										<p class="font-medium text-stone-900 dark:text-stone-100 flex items-center gap-2">
+											{ group.Name }
+											if group.IsDefault {
+												<span class="lmn-badge lmn-badge-success">{ i18n.T(ctx, "organization.groups.default") }</span>
+											}
+										</p>
+										<p class="text-xs text-stone-500 dark:text-stone-400">
+											{ i18n.TPlural(ctx, "organization.members.count", countGroupMembers(data.Members, group.ID)) }
+										</p>
+									</div>
+								</div>
+							}
+						</div>
+					</div>
+				</div>
+			}
+
+			<!-- Create New Organization Card -->
+			<div class="lmn-card mt-6">
+				<div class="lmn-card-title">
+					<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.create.title") }</h2>
+				</div>
+				<div class="lmn-card-content">
+					<form action={ i18n.LocalizedPath(ctx, "/organization/create") } method="post">
+						<div class="flex gap-2">
+							<input
+								type="text"
+								name="name"
+								placeholder={ i18n.T(ctx, "organization.create.placeholder") }
+								required
+								minlength="1"
+								class="lmn-form-input flex-1"
+							/>
+							<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "organization.create.submit") }</button>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<!-- Organizations List -->
+			if len(data.Organizations) > 0 {
+				<div class="lmn-card mt-6">
+					<div class="lmn-card-title">
+						<h2 class="lmn-card-title-text">{ i18n.T(ctx, "organization.all.title") }</h2>
+					</div>
+					<div class="lmn-card-content">
+						<div class="divide-y divide-stone-200 dark:divide-stone-700">
+							for _, org := range data.Organizations {
+								<div class="py-3 flex items-center justify-between">
+									<div>
+										<p class="font-medium text-stone-900 dark:text-stone-100">
+											{ org.Name }
+											if org.IsActive {
+												<span class="lmn-badge lmn-badge-success ml-2">{ i18n.T(ctx, "organization.all.active") }</span>
+											}
+										</p>
+										<p class="text-xs text-stone-500 dark:text-stone-400">
+											if org.IsOwned {
+												{ i18n.T(ctx, "organization.all.ownedByYou") }
+											} else {
+												{ i18n.T(ctx, "organization.all.member") }
+											}
+										</p>
+									</div>
+									if !org.IsActive {
+										<form action={ templ.SafeURL(i18n.LocalizedPath(ctx, fmt.Sprintf("/organization/switch/%s", org.ID))) } method="post">
+											<button type="submit" class="lmn-button-secondary">{ i18n.T(ctx, "organization.all.switch") }</button>
+										</form>
+									}
+								</div>
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}

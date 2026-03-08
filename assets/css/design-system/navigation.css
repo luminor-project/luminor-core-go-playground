@@ -1,0 +1,26 @@
+.lmn-nav-bg {
+    @apply bg-white/95 dark:bg-stone-950/95 backdrop-blur;
+}
+
+.lmn-nav-border,
+.lmn-nav-border-left {
+    @apply border-stone-200 dark:border-stone-800;
+}
+
+.lmn-nav-section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 px-2 mb-2;
+}
+
+.lmn-nav-group {
+    @apply space-y-1;
+}
+
+.lmn-nav-link,
+.lmn-nav-link-fullcontent {
+    @apply rounded-lg px-3 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/80 hover:text-primary-800 dark:hover:text-primary-200 transition-colors duration-150;
+}
+
+.lmn-nav-link-active,
+.lmn-nav-link-fullcontent-active {
+    @apply bg-primary-100 dark:bg-primary-900/30 text-primary-900 dark:text-primary-100;
+}

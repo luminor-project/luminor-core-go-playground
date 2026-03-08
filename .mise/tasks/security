@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Run vulnerability and dependency security checks"
+set -euo pipefail
+
+echo "==> Installing Node dependencies..."
+mise run in-app-container npm ci
+
+echo "==> Running govulncheck..."
+mise run in-app-container sh -lc "command -v govulncheck >/dev/null 2>&1 || GOBIN=/usr/local/bin /usr/local/go/bin/go install golang.org/x/vuln/cmd/govulncheck@latest"
+mise run in-app-container govulncheck ./cmd/... ./internal/... ./tools/...
+
+echo "==> Running npm audit..."
+mise run in-app-container npm audit --audit-level=high
+
+echo "==> Installing E2E Node dependencies..."
+mise run in-app-container sh -lc "cd tests/e2e && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm ci"
+
+echo "==> Running E2E npm audit..."
+mise run in-app-container sh -lc "cd tests/e2e && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm audit --audit-level=high"
+
+echo "Security checks passed."

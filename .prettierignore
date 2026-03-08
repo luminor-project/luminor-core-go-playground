@@ -1,0 +1,10 @@
+.claude
+node_modules
+tests/e2e/node_modules
+vendor
+bin
+static
+assets
+coverage.out
+package-lock.json
+tests/e2e/package-lock.json

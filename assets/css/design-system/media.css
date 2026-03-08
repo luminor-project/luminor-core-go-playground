@@ -1,0 +1,59 @@
+.lmn-media-hero {
+    @apply relative overflow-hidden rounded-2xl min-h-[280px];
+}
+
+.lmn-media-hero-image {
+    @apply absolute inset-0 h-full w-full object-cover;
+}
+
+.lmn-media-hero-overlay {
+    @apply absolute inset-0 bg-primary-950/65 dark:bg-primary-950/80;
+}
+
+.lmn-media-hero-content {
+    @apply relative z-10 px-6 py-14 text-center;
+}
+
+.lmn-media-hero-title {
+    @apply font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white;
+}
+
+.lmn-media-split {
+    @apply rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/60 overflow-hidden;
+}
+
+.lmn-media-pane {
+    @apply aspect-[4/3] lg:aspect-auto lg:min-h-[320px];
+}
+
+.lmn-media-image {
+    @apply h-full w-full object-cover;
+}
+
+.lmn-media-copy {
+    @apply px-8 py-10 flex flex-col justify-center;
+}
+
+.lmn-image-card {
+    @apply rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/60 shadow-sm overflow-hidden;
+}
+
+.lmn-image-card-media {
+    @apply aspect-[16/10];
+}
+
+.lmn-overlay-caption {
+    @apply relative overflow-hidden rounded-2xl aspect-[2/1];
+}
+
+.lmn-overlay-caption-gradient {
+    @apply absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent;
+}
+
+.lmn-gallery-grid {
+    @apply grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4;
+}
+
+.lmn-gallery-item {
+    @apply w-full aspect-[4/3] rounded-xl object-cover shadow-md;
+}

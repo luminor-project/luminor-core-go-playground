@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run business database migrations"
+set -euo pipefail
+
+mise run in-app-container go run ./cmd/migrate business "${@:-up}"

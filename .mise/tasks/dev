@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Run air (Go hot reload) + tailwind --watch concurrently inside container"
+set -euo pipefail
+
+# Generate templ files first
+mise run in-app-container templ generate
+
+# Build CSS + static JS assets once before starting watcher
+mise run prepare-assets
+
+# Start Tailwind watch in background inside the app container
+mise run docker-compose -- exec app sh -lc "cd /app && MISE_TRUSTED_CONFIG_PATHS=/app/mise.toml /root/.local/bin/mise exec node@24 -- npm exec -- tailwindcss -i assets/css/app.css -o static/css/app.css --watch" &
+TAILWIND_PID=$!
+
+cleanup() {
+    kill "$TAILWIND_PID" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+# Run air inside the container (foreground, interactive)
+mise run docker-compose -- exec app air

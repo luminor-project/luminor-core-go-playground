@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Run integration tests"
+set -euo pipefail
+
+echo "==> Running integration tests..."
+PKGS=$(mise run in-app-container sh -c "go list ./tests/integration/... 2>/dev/null || true")
+if [ -z "$PKGS" ]; then
+    echo "No integration test packages found under tests/integration; skipping."
+    exit 0
+fi
+mise run in-app-container go test -race -cover -tags=integration ./tests/integration/...

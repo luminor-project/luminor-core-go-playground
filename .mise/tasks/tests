@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#MISE description="Run unit tests"
+set -euo pipefail
+
+MIN_COVERAGE="${MIN_COVERAGE:-60}"
+
+echo "==> Running unit tests..."
+PACKAGES="$(mise run in-app-container sh -c "go list ./internal/... \
+  | grep -Ev '(/web$|/web/templates$|/infra$|/facade$|/testharness$|/common/web/templates/layouts$|/platform/(auth|config|csrf|database|flash|outbox|render|session)$)'")"
+
+if [ -z "$PACKAGES" ]; then
+  echo "No unit-test coverage packages matched."
+  exit 1
+fi
+
+echo "Coverage scope packages:"
+echo "$PACKAGES"
+
+PKGS="$(printf '%s\n' "$PACKAGES" | tr '\n' ' ')"
+mise run in-app-container sh -c "go test -race -coverprofile=coverage.out $PKGS"
+
+TOTAL_COVERAGE="$(mise run in-app-container sh -c "go tool cover -func=coverage.out | grep '^total:' | awk '{print \$NF}' | tr -d '%'")"
+echo "Total statement coverage: ${TOTAL_COVERAGE}%"
+awk -v total="$TOTAL_COVERAGE" -v min="$MIN_COVERAGE" 'BEGIN { if (total+0 < min+0) { printf "Coverage %.1f%% is below threshold %d%%\n", total, min; exit 1 } }'

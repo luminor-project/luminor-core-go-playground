@@ -1,0 +1,48 @@
+.lmn-table {
+    @apply min-w-full divide-y divide-stone-200 dark:divide-stone-700;
+}
+
+.lmn-table-header {
+    @apply py-3.5 pl-6 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400;
+}
+
+.lmn-table-cell {
+    @apply whitespace-nowrap py-4 pl-6 pr-6 text-sm text-stone-700 dark:text-stone-200;
+}
+
+.lmn-table-cell-secondary {
+    @apply text-stone-500 dark:text-stone-400;
+}
+
+.lmn-table-cell-right,
+.lmn-table-header-right {
+    @apply text-right;
+}
+
+.lmn-content-table-row {
+    @apply hover:bg-stone-50 dark:hover:bg-stone-800/60 transition-colors duration-150;
+}
+
+.lmn-pagination-info {
+    @apply text-sm text-stone-600 dark:text-stone-400;
+}
+
+.lmn-pagination-nav {
+    @apply inline-flex items-center gap-1;
+}
+
+.lmn-pagination-item {
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800;
+}
+
+.lmn-pagination-item-active {
+    @apply bg-primary-800 text-white border-primary-800 dark:bg-primary-700 dark:border-primary-700 hover:bg-primary-900 dark:hover:bg-primary-600;
+}
+
+.lmn-pagination-nav-button {
+    @apply inline-flex items-center justify-center rounded-md px-2.5 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200;
+}
+
+.lmn-pagination-nav-button-disabled {
+    @apply rounded-md text-stone-400 dark:text-stone-600 bg-stone-100 dark:bg-stone-800 pointer-events-none;
+}
