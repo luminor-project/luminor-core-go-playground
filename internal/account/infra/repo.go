@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
 )
 
 // PostgresRepository implements domain.Repository using PostgreSQL.
