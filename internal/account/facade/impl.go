@@ -28,8 +28,6 @@ var _ interface {
 	MustSetPassword(ctx context.Context, email string) (bool, error)
 	GetAccountInfoByID(ctx context.Context, id string) (AccountInfoDTO, error)
 	GetAccountInfoByIDs(ctx context.Context, ids []string) ([]AccountInfoDTO, error)
-	GetAccountIDByEmail(ctx context.Context, email string) (string, error)
-	AccountWithIDExists(ctx context.Context, accountID string) (bool, error)
 	GetActiveOrgID(ctx context.Context, accountID string) (string, error)
 	GetAccountEmailByID(ctx context.Context, accountID string) (string, error)
 	SetActiveOrganization(ctx context.Context, accountID, orgID string) error
@@ -92,25 +90,6 @@ func (f *facadeImpl) Authenticate(ctx context.Context, email, password string) (
 		return AccountInfoDTO{}, err
 	}
 	return toAccountInfoDTO(account), nil
-}
-
-func (f *facadeImpl) GetAccountIDByEmail(ctx context.Context, email string) (string, error) {
-	account, err := f.service.FindByEmail(ctx, email)
-	if err != nil {
-		return "", err
-	}
-	return account.ID, nil
-}
-
-func (f *facadeImpl) AccountWithIDExists(ctx context.Context, accountID string) (bool, error) {
-	_, err := f.service.FindByID(ctx, accountID)
-	if err != nil {
-		if errors.Is(err, domain.ErrAccountNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 func (f *facadeImpl) GetActiveOrgID(ctx context.Context, accountID string) (string, error) {

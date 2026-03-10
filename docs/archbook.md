@@ -58,18 +58,15 @@ The provider may expose concrete facade implementations for wiring, but consumer
 
 ### Facade Purity Principle
 
-A facade method must justify its existence by one of two criteria:
+Facades serve different roles depending on the vertical type. The purity rules reflect this.
 
-1. **Cross-vertical public API** — The method is called by another vertical (or by a composition root like `cmd/server` or `cmd/seed`).
-2. **Multi-vertical orchestration** — The method coordinates calls across two or more verticals or infrastructure ports (e.g., workitem + agent workload + subject lookup).
+#### Synthesis facades (e.g. app_casehandling)
 
-A method that simply delegates to a single dependency **does not belong on the facade**. If the only caller is the vertical's own handler, the handler should consume the dependency's facade directly via its own narrow interface.
+A synthesis facade coordinates multiple verticals. Every method must justify itself by **multi-dependency orchestration** — coordinating calls across two or more verticals or infrastructure ports.
 
-**Example: app_casehandling**
+A method that delegates to a single dependency **does not belong on the synthesis facade**. The handler should consume that dependency's facade directly via its own narrow interface.
 
-`HandleInboundInquiry` orchestrates workitem intake + agent lookup + agent draft + two assistant action recordings across three dependencies. This is genuine multi-vertical orchestration — it belongs on the facade.
-
-`ConfirmOutboundMessage`, `AddNote`, `EditNote`, `DeleteNote` — each of these would only delegate to the workitem facade with no additional logic. They do not belong on the app_casehandling facade. The handler consumes the workitem facade directly:
+**Example:** `HandleInboundInquiry` orchestrates workitem intake + agent lookup + agent draft across three dependencies. This is genuine orchestration — it belongs on the facade. `ConfirmOutboundMessage`, `AddNote` — each would only delegate to the workitem facade. They do not belong on app_casehandling's facade:
 
 ```go
 // Handler uses workitem facade directly for single-vertical operations
@@ -79,7 +76,18 @@ type workitemCommands interface {
 }
 ```
 
-This keeps facades lean, avoids pure-delegation bloat, and makes it immediately clear which methods involve genuine orchestration.
+#### CRUD facades (e.g. account, organization, rag)
+
+A CRUD facade is the vertical's **public API boundary**. It hides domain internals, converts domain types to DTOs, and publishes domain events. Even same-vertical consumers (web handlers) go through the facade for consistency.
+
+Every CRUD facade method must justify itself by at least one of:
+
+1. **Cross-vertical consumer exists** — another vertical or composition root calls it
+2. **DTO conversion / domain type hiding** — translates domain entities to public DTOs
+3. **Event publishing** — publishes domain events after a write operation
+4. **Semantic transformation** — changes the API shape (e.g. `FindByID` → `GetActiveOrgID` extracting one field)
+
+Pure passthroughs (e.g. `SetActiveOrganization` forwarding to the service) are tolerable when they have cross-vertical consumers or maintain the invariant that all access flows through the facade. Methods with zero callers are dead code and must be removed.
 
 ## Event Bus
 
