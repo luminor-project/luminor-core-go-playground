@@ -53,13 +53,13 @@ func subscribeCreationEvents(
 		slog.Info("projecting WorkItemCreatedEvent", "work_item_id", e.WorkItemID)
 		return store.Upsert(ctx, infra.CaseDashboardRow{
 			WorkItemID: e.WorkItemID,
-			Status:     "new",
+			Status:     string(workitemfacade.StatusNew),
 			CreatedAt:  e.CreatedAt,
 		})
 	})
 
 	eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.PartyLinkedEvent) error {
-		if e.Role != "sender" {
+		if e.Role != workitemfacade.PartyRoleSender {
 			return nil
 		}
 		slog.Info("projecting PartyLinkedEvent (sender)", "work_item_id", e.WorkItemID, "party_id", e.PartyID)
@@ -70,7 +70,7 @@ func subscribeCreationEvents(
 		return store.Upsert(ctx, infra.CaseDashboardRow{
 			WorkItemID:     e.WorkItemID,
 			PartyName:      info.Name,
-			PartyActorKind: info.ActorKind,
+			PartyActorKind: string(info.ActorKind),
 		})
 	})
 
@@ -89,7 +89,7 @@ func subscribeCreationEvents(
 
 	eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.WorkItemStatusChangedEvent) error {
 		slog.Info("projecting WorkItemStatusChangedEvent", "work_item_id", e.WorkItemID, "new_status", e.NewStatus)
-		return store.UpdateStatus(ctx, e.WorkItemID, e.NewStatus)
+		return store.UpdateStatus(ctx, e.WorkItemID, string(e.NewStatus))
 	})
 }
 
@@ -114,11 +114,11 @@ func subscribeTimelineEvents(
 		slog.Info("projecting AssistantActionRecordedEvent", "work_item_id", e.WorkItemID, "action_kind", e.ActionKind)
 		actorName, actorKind := resolveParty(ctx, parties, e.ActorID)
 		return store.AppendTimeline(ctx, e.WorkItemID, infra.TimelineEntry{
-			EventType:   "assistant_action_" + e.ActionKind,
+			EventType:   "assistant_action_" + string(e.ActionKind),
 			ActorName:   actorName,
 			ActorKind:   actorKind,
 			Content:     e.Output,
-			DraftStatus: e.DraftStatus,
+			DraftStatus: string(e.DraftStatus),
 			RecordedAt:  e.RecordedAt,
 		})
 	})
@@ -135,7 +135,7 @@ func subscribeTimelineEvents(
 		}); err != nil {
 			return err
 		}
-		return store.UpdateStatus(ctx, e.WorkItemID, "resolved")
+		return store.UpdateStatus(ctx, e.WorkItemID, string(workitemfacade.StatusResolved))
 	})
 }
 
@@ -173,5 +173,5 @@ func resolveParty(ctx context.Context, parties partyLookup, partyID string) (str
 		slog.Warn("party lookup failed for timeline", "party_id", partyID, "error", err)
 		return partyID, "unknown"
 	}
-	return info.Name, info.ActorKind
+	return info.Name, string(info.ActorKind)
 }

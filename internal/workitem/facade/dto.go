@@ -12,9 +12,9 @@ type IntakeInboundMessageDTO struct {
 // RecordAssistantActionDTO holds the data for recording an AI assistant action.
 type RecordAssistantActionDTO struct {
 	ActorID     string
-	ActionKind  string // "lookup", "draft"
+	ActionKind  ActionKind
 	Output      string
-	DraftStatus string // "" or "pending"
+	DraftStatus DraftStatus
 }
 
 // ConfirmOutboundMessageDTO holds the data for confirming an outbound message.

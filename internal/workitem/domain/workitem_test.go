@@ -83,9 +83,9 @@ func TestRecordAssistantAction_Lookup(t *testing.T) {
 	events, err := w.RecordAssistantAction(domain.AssistantActionCmd{
 		WorkItemID:  "wi-1",
 		ActorID:     "party-ki-assistent",
-		ActionKind:  "lookup",
+		ActionKind:  domain.ActionKindLookup,
 		Output:      "contract data",
-		DraftStatus: "",
+		DraftStatus: domain.DraftStatusNone,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -115,7 +115,7 @@ func TestRecordAssistantAction_Draft_ProducesStatusChange(t *testing.T) {
 	lookupEvents, _ := w.RecordAssistantAction(domain.AssistantActionCmd{
 		WorkItemID: "wi-1",
 		ActorID:    "party-ki-assistent",
-		ActionKind: "lookup",
+		ActionKind: domain.ActionKindLookup,
 		Output:     "contract data",
 	})
 	applyAll(w, lookupEvents)
@@ -123,9 +123,9 @@ func TestRecordAssistantAction_Draft_ProducesStatusChange(t *testing.T) {
 	events, err := w.RecordAssistantAction(domain.AssistantActionCmd{
 		WorkItemID:  "wi-1",
 		ActorID:     "party-ki-assistent",
-		ActionKind:  "draft",
+		ActionKind:  domain.ActionKindDraft,
 		Output:      "draft response",
-		DraftStatus: "pending",
+		DraftStatus: domain.DraftStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -161,7 +161,7 @@ func TestConfirmOutboundMessage(t *testing.T) {
 	lookupEvents, _ := w.RecordAssistantAction(domain.AssistantActionCmd{
 		WorkItemID: "wi-1",
 		ActorID:    "party-ki-assistent",
-		ActionKind: "lookup",
+		ActionKind: domain.ActionKindLookup,
 		Output:     "contract data",
 	})
 	applyAll(w, lookupEvents)
@@ -170,9 +170,9 @@ func TestConfirmOutboundMessage(t *testing.T) {
 	draftEvents, _ := w.RecordAssistantAction(domain.AssistantActionCmd{
 		WorkItemID:  "wi-1",
 		ActorID:     "party-ki-assistent",
-		ActionKind:  "draft",
+		ActionKind:  domain.ActionKindDraft,
 		Output:      "draft response",
-		DraftStatus: "pending",
+		DraftStatus: domain.DraftStatusPending,
 	})
 	applyAll(w, draftEvents)
 
@@ -237,12 +237,12 @@ func TestConfirmOutboundMessage_AlreadyConfirmed(t *testing.T) {
 	applyAll(w, intakeEvents)
 
 	lookupEvents, _ := w.RecordAssistantAction(domain.AssistantActionCmd{
-		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: "lookup", Output: "data",
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: domain.ActionKindLookup, Output: "data",
 	})
 	applyAll(w, lookupEvents)
 
 	draftEvents, _ := w.RecordAssistantAction(domain.AssistantActionCmd{
-		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: "draft", Output: "draft", DraftStatus: "pending",
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: domain.ActionKindDraft, Output: "draft", DraftStatus: domain.DraftStatusPending,
 	})
 	applyAll(w, draftEvents)
 
@@ -281,13 +281,13 @@ func TestGoldenPath_FinalState(t *testing.T) {
 
 	// Lookup
 	events, _ = w.RecordAssistantAction(domain.AssistantActionCmd{
-		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: "lookup", Output: "contract data",
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: domain.ActionKindLookup, Output: "contract data",
 	})
 	applyAll(w, events)
 
 	// Draft
 	events, _ = w.RecordAssistantAction(domain.AssistantActionCmd{
-		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: "draft", Output: "draft", DraftStatus: "pending",
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent", ActionKind: domain.ActionKindDraft, Output: "draft", DraftStatus: domain.DraftStatusPending,
 	})
 	applyAll(w, events)
 

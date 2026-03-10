@@ -243,6 +243,46 @@ No container. All dependencies wired explicitly in `cmd/server/main.go`. Depende
 - **Within-vertical FKs with CASCADE** — Groups and invitations reference their parent organization
 - **Join tables** belong to the vertical that semantically owns the relationship
 
+## Typed String Constants for Domain Concepts
+
+Domain concepts with a fixed set of valid values (status, action kind, actor kind, party role) must be expressed as typed string constants — never bare `string`. This applies everywhere such a value is created, passed, or compared.
+
+```go
+// Definition (in the package that owns the concept)
+type ActionKind string
+
+const (
+    ActionKindLookup ActionKind = "lookup"
+    ActionKindDraft  ActionKind = "draft"
+)
+```
+
+This gives compile-time safety at function boundaries (a bare `string` won't be accepted where `ActionKind` is expected), trivial JSON serialization (the underlying `string` round-trips without custom marshalers), and readable values in the event store and logs.
+
+### Where types live
+
+A typed constant lives in the package that semantically owns the concept:
+
+| Type                                               | Owner                    | Why                                            |
+| -------------------------------------------------- | ------------------------ | ---------------------------------------------- |
+| `Status`, `ActionKind`, `DraftStatus`, `PartyRole` | `workitem/domain`        | Domain validation and aggregate state          |
+| `ActorKind`                                        | `party/facade`           | Party identity concept, part of the public API |
+| `ActionKind`                                       | `platform/agentworkload` | Independent definition for the port interface  |
+
+When a type crosses a vertical boundary, the facade re-exports it via a Go type alias — one source of truth, no redundancy:
+
+```go
+// workitem/facade/types.go
+type Status = domain.Status
+const StatusNew = domain.StatusNew
+```
+
+Consumers use `workitemfacade.Status` and `workitemfacade.StatusNew`. The alias means the domain type and the facade type are identical — no conversion needed within the vertical.
+
+### Read-model exception
+
+Read-model structs (e.g., `CaseDashboardRow`, `TimelineEntry`) use plain `string` for denormalized fields like `Status` and `ActorKind`. These are projection-level values read from the database; the type safety lives at the event/command boundary where values are created. Projection subscribers convert typed event fields to strings when populating the read model: `string(e.NewStatus)`.
+
 ## Error Handling
 
 Application/domain paths are Go-idiomatic: return `error` values and use sentinel errors with `errors.Is()`.  

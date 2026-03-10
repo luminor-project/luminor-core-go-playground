@@ -30,9 +30,9 @@ type WorkItemCreated struct {
 
 // PartyLinkedToWorkItem is emitted when a party is linked to a work item.
 type PartyLinkedToWorkItem struct {
-	WorkItemID string `json:"work_item_id"`
-	PartyID    string `json:"party_id"`
-	Role       string `json:"role"` // "sender", "handler", "agent"
+	WorkItemID string    `json:"work_item_id"`
+	PartyID    string    `json:"party_id"`
+	Role       PartyRole `json:"role"`
 }
 
 // SubjectLinkedToWorkItem is emitted when a subject is linked to a work item.
@@ -51,12 +51,12 @@ type InboundMessageRecorded struct {
 
 // AssistantActionRecorded is emitted when an AI assistant performs an action.
 type AssistantActionRecorded struct {
-	WorkItemID  string    `json:"work_item_id"`
-	ActorID     string    `json:"actor_id"`
-	ActionKind  string    `json:"action_kind"` // "lookup", "draft"
-	Output      string    `json:"output"`
-	DraftStatus string    `json:"draft_status"` // "" for lookup, "pending" for draft
-	RecordedAt  time.Time `json:"recorded_at"`
+	WorkItemID  string      `json:"work_item_id"`
+	ActorID     string      `json:"actor_id"`
+	ActionKind  ActionKind  `json:"action_kind"`
+	Output      string      `json:"output"`
+	DraftStatus DraftStatus `json:"draft_status"`
+	RecordedAt  time.Time   `json:"recorded_at"`
 }
 
 // OutboundMessageRecorded is emitted when an outbound message is confirmed and sent.
@@ -70,8 +70,8 @@ type OutboundMessageRecorded struct {
 // WorkItemStatusChanged is emitted when the work item status changes.
 type WorkItemStatusChanged struct {
 	WorkItemID string `json:"work_item_id"`
-	OldStatus  string `json:"old_status"`
-	NewStatus  string `json:"new_status"`
+	OldStatus  Status `json:"old_status"`
+	NewStatus  Status `json:"new_status"`
 }
 
 // NoteAddedToTimelineEntry is emitted when a note is added to a timeline entry.

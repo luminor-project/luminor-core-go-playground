@@ -63,7 +63,7 @@ type fakePartyLookup struct {
 func (f *fakePartyLookup) GetPartyInfo(_ context.Context, partyID string) (partyfacade.PartyInfoDTO, error) {
 	p, ok := f.data[partyID]
 	if !ok {
-		return partyfacade.PartyInfoDTO{Name: partyID, ActorKind: "unknown"}, nil
+		return partyfacade.PartyInfoDTO{Name: partyID, ActorKind: partyfacade.ActorKind("unknown")}, nil
 	}
 	return p, nil
 }
@@ -104,8 +104,8 @@ func TestProjection_WorkItemCreated(t *testing.T) {
 	if store.upsertCalls[0].WorkItemID != "wi-1" {
 		t.Errorf("expected work item ID 'wi-1', got %q", store.upsertCalls[0].WorkItemID)
 	}
-	if store.upsertCalls[0].Status != "new" {
-		t.Errorf("expected status 'new', got %q", store.upsertCalls[0].Status)
+	if store.upsertCalls[0].Status != string(workitemfacade.StatusNew) {
+		t.Errorf("expected status %q, got %q", workitemfacade.StatusNew, store.upsertCalls[0].Status)
 	}
 }
 
@@ -114,7 +114,7 @@ func TestProjection_InboundMessage(t *testing.T) {
 	bus := eventbus.New()
 	store := &fakeStore{}
 	parties := &fakePartyLookup{data: map[string]partyfacade.PartyInfoDTO{
-		"party-anna": {ID: "party-anna", ActorKind: "human", Name: "Anna"},
+		"party-anna": {ID: "party-anna", ActorKind: partyfacade.ActorKindHuman, Name: "Anna"},
 	}}
 	subjects := &fakeSubjectLookup{data: map[string]subjectfacade.SubjectInfoDTO{}}
 
@@ -153,8 +153,8 @@ func TestProjection_StatusChanged(t *testing.T) {
 
 	err := eventbus.Publish(context.Background(), bus, workitemfacade.WorkItemStatusChangedEvent{
 		WorkItemID: "wi-1",
-		OldStatus:  "new",
-		NewStatus:  "in_progress",
+		OldStatus:  workitemfacade.StatusNew,
+		NewStatus:  workitemfacade.StatusInProgress,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -163,7 +163,7 @@ func TestProjection_StatusChanged(t *testing.T) {
 	if len(store.updateStatusCalls) != 1 {
 		t.Fatalf("expected 1 update status call, got %d", len(store.updateStatusCalls))
 	}
-	if store.updateStatusCalls[0].Status != "in_progress" {
-		t.Errorf("expected status 'in_progress', got %q", store.updateStatusCalls[0].Status)
+	if store.updateStatusCalls[0].Status != string(workitemfacade.StatusInProgress) {
+		t.Errorf("expected status %q, got %q", workitemfacade.StatusInProgress, store.updateStatusCalls[0].Status)
 	}
 }

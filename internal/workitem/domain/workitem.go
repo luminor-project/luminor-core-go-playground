@@ -5,14 +5,6 @@ import (
 	"time"
 )
 
-// WorkItem status constants.
-const (
-	StatusNew                 = "new"
-	StatusInProgress          = "in_progress"
-	StatusPendingConfirmation = "pending_confirmation"
-	StatusResolved            = "resolved"
-)
-
 var (
 	ErrAlreadyCreated     = errors.New("work item already created")
 	ErrNotCreated         = errors.New("work item not yet created")
@@ -28,7 +20,7 @@ var (
 // WorkItem is the event-sourced aggregate for case work items.
 type WorkItem struct {
 	ID                 string
-	Status             string
+	Status             Status
 	Version            int
 	PartyIDs           []string
 	SubjectID          string
@@ -61,7 +53,7 @@ func (w *WorkItem) Apply(eventType string, payload any) {
 
 	case EventAssistantActionRecorded:
 		e := payload.(AssistantActionRecorded)
-		if e.DraftStatus == "pending" {
+		if e.DraftStatus == DraftStatusPending {
 			w.HasPendingDraft = true
 		}
 		w.TimelineEntryCount++
@@ -155,9 +147,9 @@ func (w *WorkItem) IntakeInboundMessage(cmd IntakeCmd) ([]DomainEvent, error) {
 type AssistantActionCmd struct {
 	WorkItemID  string
 	ActorID     string
-	ActionKind  string // "lookup", "draft"
+	ActionKind  ActionKind
 	Output      string
-	DraftStatus string // "" for lookup, "pending" for draft
+	DraftStatus DraftStatus
 }
 
 // RecordAssistantAction records an AI assistant action on the work item.
@@ -168,7 +160,7 @@ func (w *WorkItem) RecordAssistantAction(cmd AssistantActionCmd) ([]DomainEvent,
 	if w.Status == StatusResolved {
 		return nil, ErrAlreadyResolved
 	}
-	if cmd.ActionKind != "lookup" && cmd.ActionKind != "draft" {
+	if cmd.ActionKind != ActionKindLookup && cmd.ActionKind != ActionKindDraft {
 		return nil, ErrInvalidActionKind
 	}
 
@@ -185,7 +177,7 @@ func (w *WorkItem) RecordAssistantAction(cmd AssistantActionCmd) ([]DomainEvent,
 		}},
 	}
 
-	if cmd.DraftStatus == "pending" {
+	if cmd.DraftStatus == DraftStatusPending {
 		events = append(events, DomainEvent{
 			EventType: EventWorkItemStatusChanged,
 			Payload: WorkItemStatusChanged{
@@ -328,7 +320,7 @@ func (w *WorkItem) DeleteNote(cmd DeleteNoteCmd) ([]DomainEvent, error) {
 // SetStatusCmd holds the data for changing the work item status.
 type SetStatusCmd struct {
 	WorkItemID string
-	NewStatus  string
+	NewStatus  Status
 }
 
 // SetStatus changes the work item status.

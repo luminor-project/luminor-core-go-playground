@@ -16,11 +16,11 @@ func TestDemoPartyFacade_KnownParties(t *testing.T) {
 	tests := []struct {
 		id        string
 		name      string
-		actorKind string
+		actorKind facade.ActorKind
 	}{
-		{"party-anna-schmidt", "Anna Schmidt", "human"},
-		{"party-sarah", "Sarah", "human"},
-		{"party-ki-assistent", "KI-Assistent", "assistant"},
+		{"party-anna-schmidt", "Anna Schmidt", facade.ActorKindHuman},
+		{"party-sarah", "Sarah", facade.ActorKindHuman},
+		{"party-ki-assistent", "KI-Assistent", facade.ActorKindAssistant},
 	}
 
 	for _, tt := range tests {

@@ -81,7 +81,7 @@ func (f *facadeImpl) HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (
 	// 2. Execute agent lookup
 	lookupResult, err := f.agent.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: workItemID,
-		ActionKind: "lookup",
+		ActionKind: agentworkload.ActionKindLookup,
 		Context:    agentCtx,
 	})
 	if err != nil {
@@ -91,9 +91,9 @@ func (f *facadeImpl) HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (
 	// 3. Record lookup action
 	if err := f.workitems.RecordAssistantAction(ctx, workItemID, workitemfacade.RecordAssistantActionDTO{
 		ActorID:     dto.AgentPartyID,
-		ActionKind:  "lookup",
+		ActionKind:  workitemfacade.ActionKindLookup,
 		Output:      lookupResult.Output,
-		DraftStatus: "",
+		DraftStatus: workitemfacade.DraftStatusNone,
 	}); err != nil {
 		return workItemID, fmt.Errorf("record lookup action: %w", err)
 	}
@@ -105,7 +105,7 @@ func (f *facadeImpl) HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (
 	}
 	draftResult, err := f.agent.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: workItemID,
-		ActionKind: "draft",
+		ActionKind: agentworkload.ActionKindDraft,
 		Context:    draftCtx,
 	})
 	if err != nil {
@@ -115,9 +115,9 @@ func (f *facadeImpl) HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (
 	// 5. Record draft action
 	if err := f.workitems.RecordAssistantAction(ctx, workItemID, workitemfacade.RecordAssistantActionDTO{
 		ActorID:     dto.AgentPartyID,
-		ActionKind:  "draft",
+		ActionKind:  workitemfacade.ActionKindDraft,
 		Output:      draftResult.Output,
-		DraftStatus: "pending",
+		DraftStatus: workitemfacade.DraftStatusPending,
 	}); err != nil {
 		return workItemID, fmt.Errorf("record draft action: %w", err)
 	}

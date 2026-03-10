@@ -19,9 +19,9 @@ func MakeIntakeDTO() facade.IntakeInboundMessageDTO {
 func MakeLookupDTO(output string) facade.RecordAssistantActionDTO {
 	return facade.RecordAssistantActionDTO{
 		ActorID:     "party-ki-assistent",
-		ActionKind:  "lookup",
+		ActionKind:  facade.ActionKindLookup,
 		Output:      output,
-		DraftStatus: "",
+		DraftStatus: facade.DraftStatusNone,
 	}
 }
 
@@ -29,9 +29,9 @@ func MakeLookupDTO(output string) facade.RecordAssistantActionDTO {
 func MakeDraftDTO(output string) facade.RecordAssistantActionDTO {
 	return facade.RecordAssistantActionDTO{
 		ActorID:     "party-ki-assistent",
-		ActionKind:  "draft",
+		ActionKind:  facade.ActionKindDraft,
 		Output:      output,
-		DraftStatus: "pending",
+		DraftStatus: facade.DraftStatusPending,
 	}
 }
 

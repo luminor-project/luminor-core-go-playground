@@ -21,15 +21,15 @@ func NewFakeAdapter() *FakeAdapter {
 // Execute returns hardcoded results based on the action kind.
 func (a *FakeAdapter) Execute(_ context.Context, req WorkloadRequest) (WorkloadResult, error) {
 	switch req.ActionKind {
-	case "lookup":
+	case ActionKindLookup:
 		return WorkloadResult{
-			ActionKind: "lookup",
+			ActionKind: ActionKindLookup,
 			Output:     fakeLookupOutput,
 			Metadata:   map[string]string{"source": "contract-db"},
 		}, nil
-	case "draft":
+	case ActionKindDraft:
 		return WorkloadResult{
-			ActionKind: "draft",
+			ActionKind: ActionKindDraft,
 			Output:     fakeDraftOutput,
 			Metadata:   map[string]string{"model": "fake"},
 		}, nil

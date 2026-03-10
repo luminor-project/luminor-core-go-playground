@@ -12,7 +12,7 @@ type WorkItemCreatedEvent struct {
 type PartyLinkedEvent struct {
 	WorkItemID string
 	PartyID    string
-	Role       string
+	Role       PartyRole
 }
 
 // SubjectLinkedEvent is published when a subject is linked to a work item.
@@ -33,9 +33,9 @@ type InboundMessageRecordedEvent struct {
 type AssistantActionRecordedEvent struct {
 	WorkItemID  string
 	ActorID     string
-	ActionKind  string
+	ActionKind  ActionKind
 	Output      string
-	DraftStatus string
+	DraftStatus DraftStatus
 	RecordedAt  time.Time
 }
 
@@ -50,8 +50,8 @@ type OutboundMessageRecordedEvent struct {
 // WorkItemStatusChangedEvent is published when the work item status changes.
 type WorkItemStatusChangedEvent struct {
 	WorkItemID string
-	OldStatus  string
-	NewStatus  string
+	OldStatus  Status
+	NewStatus  Status
 }
 
 // NoteAddedToTimelineEntryEvent is published when a note is added to a timeline entry.

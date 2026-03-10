@@ -14,14 +14,14 @@ func TestFakeAdapter_Lookup(t *testing.T) {
 
 	result, err := adapter.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: "wi-1",
-		ActionKind: "lookup",
+		ActionKind: agentworkload.ActionKindLookup,
 		Context:    map[string]string{"subject": "test"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ActionKind != "lookup" {
-		t.Errorf("expected action kind 'lookup', got %q", result.ActionKind)
+	if result.ActionKind != agentworkload.ActionKindLookup {
+		t.Errorf("expected action kind %q, got %q", agentworkload.ActionKindLookup, result.ActionKind)
 	}
 	if result.Output == "" {
 		t.Error("expected non-empty output")
@@ -30,7 +30,7 @@ func TestFakeAdapter_Lookup(t *testing.T) {
 	// Verify deterministic
 	result2, _ := adapter.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: "wi-2",
-		ActionKind: "lookup",
+		ActionKind: agentworkload.ActionKindLookup,
 	})
 	if result.Output != result2.Output {
 		t.Error("expected deterministic output across calls")
@@ -44,13 +44,13 @@ func TestFakeAdapter_Draft(t *testing.T) {
 
 	result, err := adapter.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: "wi-1",
-		ActionKind: "draft",
+		ActionKind: agentworkload.ActionKindDraft,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ActionKind != "draft" {
-		t.Errorf("expected action kind 'draft', got %q", result.ActionKind)
+	if result.ActionKind != agentworkload.ActionKindDraft {
+		t.Errorf("expected action kind %q, got %q", agentworkload.ActionKindDraft, result.ActionKind)
 	}
 	if result.Output == "" {
 		t.Error("expected non-empty output")
@@ -59,7 +59,7 @@ func TestFakeAdapter_Draft(t *testing.T) {
 	// Verify deterministic
 	result2, _ := adapter.Execute(ctx, agentworkload.WorkloadRequest{
 		WorkItemID: "wi-2",
-		ActionKind: "draft",
+		ActionKind: agentworkload.ActionKindDraft,
 	})
 	if result.Output != result2.Output {
 		t.Error("expected deterministic output across calls")

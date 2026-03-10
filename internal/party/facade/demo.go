@@ -5,17 +5,17 @@ import "context"
 var demoParties = map[string]PartyInfoDTO{
 	"party-anna-schmidt": {
 		ID:        "party-anna-schmidt",
-		ActorKind: "human",
+		ActorKind: ActorKindHuman,
 		Name:      "Anna Schmidt",
 	},
 	"party-sarah": {
 		ID:        "party-sarah",
-		ActorKind: "human",
+		ActorKind: ActorKindHuman,
 		Name:      "Sarah",
 	},
 	"party-ki-assistent": {
 		ID:        "party-ki-assistent",
-		ActorKind: "assistant",
+		ActorKind: ActorKindAssistant,
 		Name:      "KI-Assistent",
 	},
 }
