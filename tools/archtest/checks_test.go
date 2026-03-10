@@ -47,10 +47,10 @@ func Use() string { return orgfacade.NewConcrete() }
 `)
 
 	p := policy{
-		rootDir:                 root,
-		modulePath:              "example.com/archtest",
-		verticals:               []string{"account", "organization", "content"},
-		sharedPackages:          []string{"common", "shared", "platform"},
+		rootDir:        root,
+		modulePath:     "example.com/archtest",
+		verticals:      []string{"account", "organization", "content"},
+		sharedPackages: []string{"common", "shared", "platform"},
 
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedCrossSymbols:     map[string]struct{}{},
@@ -77,10 +77,10 @@ func Use(c orgfacade.Client) error { return c.Ping() }
 `)
 
 	p := policy{
-		rootDir:                 root,
-		modulePath:              "example.com/archtest",
-		verticals:               []string{"account", "organization", "content"},
-		sharedPackages:          []string{"common", "shared", "platform"},
+		rootDir:        root,
+		modulePath:     "example.com/archtest",
+		verticals:      []string{"account", "organization", "content"},
+		sharedPackages: []string{"common", "shared", "platform"},
 
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedCrossSymbols:     map[string]struct{}{},
@@ -106,10 +106,10 @@ func Handle(e orgfacade.ActiveOrgChangedEvent) string { return e.OrganizationID 
 `)
 
 	p := policy{
-		rootDir:                 root,
-		modulePath:              "example.com/archtest",
-		verticals:               []string{"account", "organization", "content"},
-		sharedPackages:          []string{"common", "shared", "platform"},
+		rootDir:        root,
+		modulePath:     "example.com/archtest",
+		verticals:      []string{"account", "organization", "content"},
+		sharedPackages: []string{"common", "shared", "platform"},
 
 		allowedCrossVerticalPkg: []string{"facade"},
 	}
@@ -142,10 +142,10 @@ func New() *MyDTO { return &MyDTO{} }
 `)
 
 	p := policy{
-		rootDir:                 root,
-		modulePath:              "example.com/archtest",
-		verticals:               []string{"account", "organization"},
-		sharedPackages:          []string{"common", "shared", "platform"},
+		rootDir:        root,
+		modulePath:     "example.com/archtest",
+		verticals:      []string{"account", "organization"},
+		sharedPackages: []string{"common", "shared", "platform"},
 
 		allowedCrossVerticalPkg: []string{"facade"},
 	}
