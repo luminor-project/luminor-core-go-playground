@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#MISE description="Print database connection details for external tools (IntelliJ, DBeaver, etc.)"
+set -euo pipefail
+
+BIZ_USER="${POSTGRES_USER:-luminor}"
+BIZ_PASS="${POSTGRES_PASSWORD:-luminor}"
+BIZ_DB="${POSTGRES_DB:-luminor}"
+BIZ_PORT=5442
+
+RAG_USER="${POSTGRES_USER:-luminor}"
+RAG_PASS="${POSTGRES_PASSWORD:-luminor}"
+RAG_DB="luminor_rag"
+RAG_PORT=5443
+
+cat <<EOF
+===  Business DB  ===
+Host:     localhost
+Port:     ${BIZ_PORT}
+Database: ${BIZ_DB}
+User:     ${BIZ_USER}
+Password: ${BIZ_PASS}
+JDBC URL: jdbc:postgresql://localhost:${BIZ_PORT}/${BIZ_DB}?user=${BIZ_USER}&password=${BIZ_PASS}
+DSN:      postgres://${BIZ_USER}:${BIZ_PASS}@localhost:${BIZ_PORT}/${BIZ_DB}?sslmode=disable
+
+===  RAG DB (pgvector)  ===
+Host:     localhost
+Port:     ${RAG_PORT}
+Database: ${RAG_DB}
+User:     ${RAG_USER}
+Password: ${RAG_PASS}
+JDBC URL: jdbc:postgresql://localhost:${RAG_PORT}/${RAG_DB}?user=${RAG_USER}&password=${RAG_PASS}
+DSN:      postgres://${RAG_USER}:${RAG_PASS}@localhost:${RAG_PORT}/${RAG_DB}?sslmode=disable
+EOF
