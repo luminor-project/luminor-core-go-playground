@@ -85,11 +85,26 @@ This keeps facades lean, avoids pure-delegation bloat, and makes it immediately 
 
 A synchronous in-process event bus in `internal/platform/eventbus/` replaces Symfony's EventDispatcher. Events are plain structs defined in each vertical's `facade/events.go`. Subscribers are registered during wiring in `cmd/server/main.go`.
 
+### Subscriber Kinds: Projections vs Reactive Commands
+
+Not every event subscriber is a projection. The codebase uses subscribers for two distinct purposes:
+
+| Purpose              | What it does                                        | Example                                                                                    |
+| -------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Projection**       | Transforms events into a query-optimized read model | `app_casehandling/subscriber/projection.go` builds the `case_dashboard` table              |
+| **Reactive command** | Triggers a side effect (a new command) in response  | `organization/subscriber/account_created.go` creates a default org when an account is made |
+
+A **projection** answers the question "how should this event stream look for a specific query?" — it denormalizes, pre-aggregates, or reshapes data into a read model table. The metaphor is geometric: projecting a rich event stream onto a flat shape optimized for one viewpoint. Nothing is created in the write model; the read model is disposable and rebuildable from events.
+
+A **reactive command** answers the question "what should happen next?" — it executes a new write operation in reaction to an event. The organization subscriber doesn't build a read model; it calls `orgFacade.CreateDefaultOrg()`, which is a full write with its own validation, persistence, and potentially its own events.
+
+The distinction matters because projections are idempotent and rebuildable (replay events → same read model), while reactive commands are not inherently idempotent (replaying could create duplicate side effects without explicit guards).
+
 ### Event Chain: User Registration
 
 1. Account registration creates account → publishes `AccountCreatedEvent`
-2. Organization subscriber receives event → creates default org → publishes `ActiveOrgChangedEvent`
-3. Account subscriber receives event → sets `currentlyActiveOrganizationID`
+2. Organization subscriber receives event → creates default org → publishes `ActiveOrgChangedEvent` _(reactive command)_
+3. Account subscriber receives event → sets `currentlyActiveOrganizationID` _(reactive command)_
 
 ## Event-Sourced Verticals
 
@@ -167,7 +182,7 @@ This cycle is identical for every command — `IntakeInboundMessage`, `RecordAss
 
 ### Projections and Read Models
 
-Projections are eventbus subscribers that transform events into query-optimized read model tables. They are registered in `cmd/server/main.go` alongside route registration.
+Projections are the subset of eventbus subscribers whose purpose is transforming events into query-optimized read model tables (see [Subscriber Kinds](#subscriber-kinds-projections-vs-reactive-commands) for the full distinction). They are registered in `cmd/server/main.go` alongside route registration.
 
 **The event store and read model are deliberately not in the same transaction.** The consistency guarantee is replay, not transactional coupling:
 
