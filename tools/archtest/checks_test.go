@@ -7,6 +7,34 @@ import (
 	"testing"
 )
 
+func TestImportBoundary_BlocksAnyNonFacadeSubpackage(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/archtest\n\ngo 1.26\n")
+	// A novel subpackage name that isn't "domain" or "infra" — still blocked.
+	writeFile(t, root, "internal/organization/utils/helper.go", `package utils
+func Help() string { return "x" }
+`)
+	writeFile(t, root, "internal/account/web/handler.go", `package web
+import "example.com/archtest/internal/organization/utils"
+var _ = utils.Help
+`)
+
+	p := policy{
+		rootDir:                 root,
+		modulePath:              "example.com/archtest",
+		verticals:               []string{"account", "organization"},
+		sharedPackages:          []string{"common", "shared", "platform"},
+		allowedCrossVerticalPkg: []string{"facade"},
+	}
+	violations, err := checkImportBoundaries(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(violations) == 0 {
+		t.Fatal("expected violation for cross-vertical import of non-facade subpackage 'utils'")
+	}
+}
+
 func TestTypeAwareChecker_FailsOnForeignConcreteFunction(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/archtest\n\ngo 1.26\n")
@@ -23,7 +51,7 @@ func Use() string { return orgfacade.NewConcrete() }
 		modulePath:              "example.com/archtest",
 		verticals:               []string{"account", "organization", "content"},
 		sharedPackages:          []string{"common", "shared", "platform"},
-		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
+
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedCrossSymbols:     map[string]struct{}{},
 	}
@@ -53,7 +81,7 @@ func Use(c orgfacade.Client) error { return c.Ping() }
 		modulePath:              "example.com/archtest",
 		verticals:               []string{"account", "organization", "content"},
 		sharedPackages:          []string{"common", "shared", "platform"},
-		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
+
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedCrossSymbols:     map[string]struct{}{},
 	}
@@ -82,7 +110,7 @@ func Handle(e orgfacade.ActiveOrgChangedEvent) string { return e.OrganizationID 
 		modulePath:              "example.com/archtest",
 		verticals:               []string{"account", "organization", "content"},
 		sharedPackages:          []string{"common", "shared", "platform"},
-		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
+
 		allowedCrossVerticalPkg: []string{"facade"},
 	}
 	// Auto-discover instead of manual allowlist
@@ -118,7 +146,7 @@ func New() *MyDTO { return &MyDTO{} }
 		modulePath:              "example.com/archtest",
 		verticals:               []string{"account", "organization"},
 		sharedPackages:          []string{"common", "shared", "platform"},
-		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
+
 		allowedCrossVerticalPkg: []string{"facade"},
 	}
 	symbols, err := discoverFacadeValueSymbols(p)

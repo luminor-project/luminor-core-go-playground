@@ -34,11 +34,8 @@ func checkImportBoundaries(p policy) ([]string, error) {
 				if !ok || toVertical == fromVertical {
 					continue
 				}
-				if slices.Contains(p.allowedCrossVerticalPkg, toSubpkg) {
-					continue
-				}
-				if slices.Contains(p.forbiddenCrossSubpkgs, toSubpkg) {
-					violations = append(violations, fmt.Sprintf("%s imports %s (cross-vertical imports allowed only via facade packages)", relPath(p.rootDir, path), imp))
+				if !slices.Contains(p.allowedCrossVerticalPkg, toSubpkg) {
+					violations = append(violations, fmt.Sprintf("%s imports %s (cross-vertical imports allowed only via %v packages)", relPath(p.rootDir, path), imp, p.allowedCrossVerticalPkg))
 				}
 			}
 			return nil
