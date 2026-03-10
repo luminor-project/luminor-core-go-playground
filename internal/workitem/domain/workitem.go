@@ -111,17 +111,17 @@ func (w *WorkItem) IntakeInboundMessage(cmd IntakeCmd) ([]DomainEvent, error) {
 		{EventType: EventPartyLinked, Payload: PartyLinkedToWorkItem{
 			WorkItemID: cmd.WorkItemID,
 			PartyID:    cmd.SenderPartyID,
-			Role:       "sender",
+			Role:       PartyRoleSender,
 		}},
 		{EventType: EventPartyLinked, Payload: PartyLinkedToWorkItem{
 			WorkItemID: cmd.WorkItemID,
 			PartyID:    cmd.HandlerPartyID,
-			Role:       "handler",
+			Role:       PartyRoleHandler,
 		}},
 		{EventType: EventPartyLinked, Payload: PartyLinkedToWorkItem{
 			WorkItemID: cmd.WorkItemID,
 			PartyID:    cmd.AgentPartyID,
-			Role:       "agent",
+			Role:       PartyRoleAgent,
 		}},
 		{EventType: EventSubjectLinked, Payload: SubjectLinkedToWorkItem{
 			WorkItemID: cmd.WorkItemID,
