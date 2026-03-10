@@ -1,0 +1,131 @@
+package templates
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+func noteCount(notes []infra.TimelineNote) string {
+	return strconv.Itoa(len(notes))
+}
+
+templ NotesPane(workItemID string, entryIndex int, notes []infra.TimelineNote) {
+	<div
+		id="notes-pane-content"
+		class="flex flex-col h-full"
+	>
+		<div class="lmn-notes-header">
+			<h3 class="font-display text-base font-semibold text-primary-900 dark:text-primary-100">
+				{ i18n.T(ctx, "cases.notes.title") }
+				if len(notes) > 0 {
+					<span class="ml-1 text-xs font-normal text-stone-500 dark:text-stone-400">({ noteCount(notes) })</span>
+				}
+			</h3>
+			<button
+				type="button"
+				class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+				@click="notesOpen = false; activeEntryIndex = -1"
+			>
+				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+			</button>
+		</div>
+		<div class="lmn-notes-list flex-1 overflow-y-auto">
+			if len(notes) == 0 {
+				<p class="text-sm text-stone-400 dark:text-stone-500">{ i18n.T(ctx, "cases.notes.empty") }</p>
+			}
+			for _, note := range notes {
+				@noteCard(workItemID, entryIndex, note)
+			}
+		</div>
+		<div class="lmn-notes-form">
+			<form
+				hx-post={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/entries/%d/notes", workItemID, entryIndex)) }
+				hx-target="#notes-pane-content"
+				hx-swap="outerHTML"
+			>
+				<textarea
+					name="body"
+					class="lmn-form-textarea"
+					rows="2"
+					placeholder={ i18n.T(ctx, "cases.notes.placeholder") }
+				></textarea>
+				<div class="mt-2 flex justify-end">
+					<button type="submit" class="lmn-button-default text-sm">{ i18n.T(ctx, "cases.notes.submit") }</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+templ noteCard(workItemID string, entryIndex int, note infra.TimelineNote) {
+	<div
+		class="lmn-note-card"
+		x-data="{ editing: false }"
+	>
+		<div class="lmn-note-meta">
+			<span class="font-medium text-stone-700 dark:text-stone-300">{ note.AuthorName }</span>
+			<span>
+				{ note.CreatedAt.Format("02 Jan 15:04") }
+				if note.EditedAt != nil {
+					{ " (" }{ i18n.T(ctx, "cases.notes.edited") }{ ")" }
+				}
+			</span>
+		</div>
+		<div x-show="!editing">
+			<p class="lmn-note-body">{ note.Body }</p>
+			<div class="lmn-note-actions">
+				<button
+					type="button"
+					class="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+					@click="editing = true"
+				>
+					@iconPencil("h-3 w-3 inline mr-0.5")
+					{ i18n.T(ctx, "cases.notes.save") }
+				</button>
+				<button
+					type="button"
+					class="text-xs text-stone-400 hover:text-red-600 dark:hover:text-red-400"
+					hx-delete={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/entries/%d/notes/%s", workItemID, entryIndex, note.NoteID)) }
+					hx-target="#notes-pane-content"
+					hx-swap="outerHTML"
+					hx-confirm={ i18n.T(ctx, "cases.notes.deleteConfirm") }
+				>
+					@iconTrash("h-3 w-3 inline mr-0.5")
+					{ i18n.T(ctx, "cases.notes.delete") }
+				</button>
+			</div>
+		</div>
+		<div x-show="editing" x-cloak="true">
+			<form
+				hx-put={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/entries/%d/notes/%s", workItemID, entryIndex, note.NoteID)) }
+				hx-target="#notes-pane-content"
+				hx-swap="outerHTML"
+			>
+				<textarea
+					name="body"
+					class="lmn-form-textarea"
+					rows="2"
+				>{ note.Body }</textarea>
+				<div class="mt-2 flex items-center gap-2 justify-end">
+					<button type="button" class="text-xs text-stone-500 hover:text-stone-700" @click="editing = false">{ i18n.T(ctx, "cases.notes.cancel") }</button>
+					<button type="submit" class="lmn-button-default text-sm">{ i18n.T(ctx, "cases.notes.save") }</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+templ iconPencil(class string) {
+	<svg class={ class } fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+}
+
+templ iconTrash(class string) {
+	<svg class={ class } fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+}
+
+templ iconNote(class string) {
+	<svg class={ class } fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+}

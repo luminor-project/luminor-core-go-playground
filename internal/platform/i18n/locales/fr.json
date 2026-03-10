@@ -161,5 +161,16 @@
   "cases.confirm.placeholder": "Modifier ou confirmer la reponse...",
   "cases.confirm.submit": "Confirmer et envoyer",
   "flash.cases.confirmFailed": "Impossible de confirmer et envoyer.",
-  "flash.cases.confirmed": "Reponse confirmee et envoyee."
+  "flash.cases.confirmed": "Reponse confirmee et envoyee.",
+  "cases.notes.title": "Notes",
+  "cases.notes.empty": "Aucune note.",
+  "cases.notes.placeholder": "Ajouter une note...",
+  "cases.notes.submit": "Ajouter une note",
+  "cases.notes.editPlaceholder": "Modifier la note...",
+  "cases.notes.save": "Enregistrer",
+  "cases.notes.cancel": "Annuler",
+  "cases.notes.delete": "Supprimer",
+  "cases.notes.edited": "modifie",
+  "cases.notes.button": "Notes",
+  "cases.notes.deleteConfirm": "Supprimer cette note ?"
 }

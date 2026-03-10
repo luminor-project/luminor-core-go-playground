@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strconv"
 	"strings"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
@@ -68,6 +69,16 @@ func aiActionLabel(ctx context.Context, eventType string) string {
 	return eventType
 }
 
+func activeNoteCount(entry infra.TimelineEntry) int {
+	n := 0
+	for _, note := range entry.Notes {
+		if !note.Deleted {
+			n++
+		}
+	}
+	return n
+}
+
 func pendingDraftBody(c infra.CaseDashboardRow) string {
 	for i := len(c.Timeline) - 1; i >= 0; i-- {
 		if c.Timeline[i].DraftStatus == "pending" {
@@ -116,7 +127,7 @@ templ CaseDetailPane(c infra.CaseDashboardRow) {
 		<h2 class="font-display text-lg font-semibold text-primary-900 dark:text-primary-100 mb-4">{ i18n.T(ctx, "cases.detail.timeline") }</h2>
 		<div class="space-y-0">
 			for i, entry := range c.Timeline {
-				@timelineEvent(entry, i == len(c.Timeline)-1)
+				@timelineEvent(c.WorkItemID, entry, i, i == len(c.Timeline)-1)
 			}
 		</div>
 	</div>
@@ -180,7 +191,7 @@ templ aiSummaryPanel(c infra.CaseDashboardRow) {
 	</div>
 }
 
-templ timelineEvent(entry infra.TimelineEntry, isLast bool) {
+templ timelineEvent(workItemID string, entry infra.TimelineEntry, entryIndex int, isLast bool) {
 	<div class="lmn-timeline-event">
 		<div class="lmn-timeline-rail">
 			<div class={ timelineIconClass(entry) }>
@@ -235,6 +246,21 @@ templ timelineEvent(entry infra.TimelineEntry, isLast bool) {
 					<p class="lmn-timeline-content">{ entry.Content }</p>
 				</div>
 			}
+			<div class="mt-1">
+				<button
+					type="button"
+					class={ "lmn-timeline-notes-btn", templ.KV("lmn-timeline-notes-btn-active", activeNoteCount(entry) > 0) }
+					hx-get={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/entries/%d/notes", workItemID, entryIndex)) }
+					hx-target="#notes-pane"
+					@click={ fmt.Sprintf("notesOpen = true; activeEntryIndex = %d", entryIndex) }
+				>
+					@iconNote("h-3.5 w-3.5")
+					{ i18n.T(ctx, "cases.notes.button") }
+					if activeNoteCount(entry) > 0 {
+						<span class="ml-0.5 text-xs">({ strconv.Itoa(activeNoteCount(entry)) })</span>
+					}
+				</button>
+			</div>
 		</div>
 	</div>
 }

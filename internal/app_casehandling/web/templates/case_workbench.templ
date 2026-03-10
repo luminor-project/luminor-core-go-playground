@@ -18,13 +18,13 @@ func selectedCaseID(selected *infra.CaseDashboardRow) string {
 
 templ CaseWorkbench(cases []infra.CaseDashboardRow, selected *infra.CaseDashboardRow) {
 	@layouts.AppShell(i18n.T(ctx, "cases.pageTitle")) {
-		<div class="-my-10 -mx-4 sm:-mx-6 lg:-mx-8 h-[calc(100vh-4rem)]" x-data={ fmt.Sprintf("{ selectedId: '%s' }", selectedCaseID(selected)) }>
+		<div class="-my-10 -mx-4 sm:-mx-6 lg:-mx-8 h-[calc(100vh-4rem)]" x-data={ fmt.Sprintf("{ selectedId: '%s', notesOpen: false, activeEntryIndex: -1 }", selectedCaseID(selected)) }>
 			if len(cases) == 0 {
 				<div class="p-8">
 					<p class="lmn-text-small">{ i18n.T(ctx, "cases.empty") }</p>
 				</div>
 			} else {
-				<div class="lmn-workbench-grid h-full">
+				<div x-bind:class="notesOpen ? 'lmn-workbench-grid-with-notes h-full' : 'lmn-workbench-grid h-full'">
 					<aside class="lmn-workbench-pane-list overflow-y-auto">
 						<ul class="lmn-ticket-list">
 							for _, c := range cases {
@@ -37,7 +37,7 @@ templ CaseWorkbench(cases []infra.CaseDashboardRow, selected *infra.CaseDashboar
 										hx-get={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/partial", c.WorkItemID)) }
 										hx-target="#case-detail-pane"
 										hx-push-url={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s", c.WorkItemID)) }
-										@click="selectedId = $el.dataset.caseId"
+										@click="selectedId = $el.dataset.caseId; notesOpen = false; activeEntryIndex = -1"
 									>
 										<div class="flex items-start justify-between gap-2">
 											<div class="min-w-0 flex-1">
@@ -75,13 +75,15 @@ templ CaseWorkbench(cases []infra.CaseDashboardRow, selected *infra.CaseDashboar
 							}
 						</ul>
 					</aside>
-					<main id="case-detail-pane" class="lmn-workbench-pane-detail overflow-y-auto">
+					<main id="case-detail-pane" x-bind:class="notesOpen ? 'lmn-workbench-pane-detail-with-notes overflow-y-auto' : 'lmn-workbench-pane-detail overflow-y-auto'">
 						if selected != nil {
 							@CaseDetailPane(*selected)
 						} else {
 							@CaseDetailEmpty()
 						}
 					</main>
+					<aside id="notes-pane" class="lmn-workbench-pane-notes overflow-y-auto" x-show="notesOpen" x-cloak="true">
+					</aside>
 				</div>
 			}
 		</div>

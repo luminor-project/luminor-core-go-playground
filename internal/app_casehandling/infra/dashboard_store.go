@@ -10,14 +10,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TimelineNote represents a note attached to a timeline entry.
+type TimelineNote struct {
+	NoteID     string     `json:"note_id"`
+	AuthorID   string     `json:"author_id"`
+	AuthorName string     `json:"author_name"`
+	Body       string     `json:"body"`
+	CreatedAt  time.Time  `json:"created_at"`
+	EditedAt   *time.Time `json:"edited_at,omitempty"`
+	Deleted    bool       `json:"deleted,omitempty"`
+}
+
 // TimelineEntry represents a single entry in the case timeline.
 type TimelineEntry struct {
-	EventType   string    `json:"event_type"`
-	ActorName   string    `json:"actor_name"`
-	ActorKind   string    `json:"actor_kind"`
-	Content     string    `json:"content"`
-	DraftStatus string    `json:"draft_status,omitempty"`
-	RecordedAt  time.Time `json:"recorded_at"`
+	EventType   string         `json:"event_type"`
+	ActorName   string         `json:"actor_name"`
+	ActorKind   string         `json:"actor_kind"`
+	Content     string         `json:"content"`
+	DraftStatus string         `json:"draft_status,omitempty"`
+	RecordedAt  time.Time      `json:"recorded_at"`
+	Notes       []TimelineNote `json:"notes,omitempty"`
 }
 
 // CaseDashboardRow represents a row in the case_dashboard read model.
@@ -155,6 +167,100 @@ func (s *DashboardStore) DeleteAll(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, "DELETE FROM case_dashboard")
 	if err != nil {
 		return fmt.Errorf("delete all case dashboard: %w", err)
+	}
+	return nil
+}
+
+// AddNoteToTimeline adds a note to a specific timeline entry.
+func (s *DashboardStore) AddNoteToTimeline(ctx context.Context, workItemID string, entryIndex int, note TimelineNote) error {
+	return s.modifyTimeline(ctx, workItemID, func(timeline []TimelineEntry) ([]TimelineEntry, error) {
+		if entryIndex < 0 || entryIndex >= len(timeline) {
+			return nil, fmt.Errorf("entry index %d out of range (len=%d)", entryIndex, len(timeline))
+		}
+		timeline[entryIndex].Notes = append(timeline[entryIndex].Notes, note)
+		return timeline, nil
+	})
+}
+
+// EditNoteOnTimeline updates a note's body across all timeline entries.
+func (s *DashboardStore) EditNoteOnTimeline(ctx context.Context, workItemID, noteID, body string, editedAt time.Time) error {
+	return s.modifyTimeline(ctx, workItemID, func(timeline []TimelineEntry) ([]TimelineEntry, error) {
+		for i := range timeline {
+			for j := range timeline[i].Notes {
+				if timeline[i].Notes[j].NoteID == noteID {
+					timeline[i].Notes[j].Body = body
+					timeline[i].Notes[j].EditedAt = &editedAt
+					return timeline, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("note %s not found", noteID)
+	})
+}
+
+// DeleteNoteOnTimeline marks a note as deleted across all timeline entries.
+func (s *DashboardStore) DeleteNoteOnTimeline(ctx context.Context, workItemID, noteID string) error {
+	return s.modifyTimeline(ctx, workItemID, func(timeline []TimelineEntry) ([]TimelineEntry, error) {
+		for i := range timeline {
+			for j := range timeline[i].Notes {
+				if timeline[i].Notes[j].NoteID == noteID {
+					timeline[i].Notes[j].Deleted = true
+					return timeline, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("note %s not found", noteID)
+	})
+}
+
+// FindNotesByEntryIndex returns all non-deleted notes for a specific timeline entry.
+func (s *DashboardStore) FindNotesByEntryIndex(ctx context.Context, workItemID string, entryIndex int) ([]TimelineNote, error) {
+	c, err := s.FindByID(ctx, workItemID)
+	if err != nil {
+		return nil, err
+	}
+	if entryIndex < 0 || entryIndex >= len(c.Timeline) {
+		return nil, fmt.Errorf("entry index %d out of range", entryIndex)
+	}
+	var notes []TimelineNote
+	for _, n := range c.Timeline[entryIndex].Notes {
+		if !n.Deleted {
+			notes = append(notes, n)
+		}
+	}
+	return notes, nil
+}
+
+// modifyTimeline loads the timeline, applies a mutation, and saves back.
+func (s *DashboardStore) modifyTimeline(ctx context.Context, workItemID string, fn func([]TimelineEntry) ([]TimelineEntry, error)) error {
+	var timelineJSON []byte
+	err := s.pool.QueryRow(ctx, `
+		SELECT timeline_json FROM case_dashboard WHERE work_item_id = $1
+	`, workItemID).Scan(&timelineJSON)
+	if err != nil {
+		return fmt.Errorf("load timeline for %s: %w", workItemID, err)
+	}
+
+	var timeline []TimelineEntry
+	if err := json.Unmarshal(timelineJSON, &timeline); err != nil {
+		return fmt.Errorf("unmarshal timeline: %w", err)
+	}
+
+	timeline, err = fn(timeline)
+	if err != nil {
+		return err
+	}
+
+	updated, err := json.Marshal(timeline)
+	if err != nil {
+		return fmt.Errorf("marshal timeline: %w", err)
+	}
+
+	_, err = s.pool.Exec(ctx, `
+		UPDATE case_dashboard SET timeline_json = $2, updated_at = now() WHERE work_item_id = $1
+	`, workItemID, updated)
+	if err != nil {
+		return fmt.Errorf("save timeline: %w", err)
 	}
 	return nil
 }

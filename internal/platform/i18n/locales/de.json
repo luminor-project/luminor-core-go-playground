@@ -161,5 +161,16 @@
   "cases.confirm.placeholder": "Antwort bearbeiten oder bestaetigen...",
   "cases.confirm.submit": "Bestaetigen und Senden",
   "flash.cases.confirmFailed": "Bestaetigung und Versand fehlgeschlagen.",
-  "flash.cases.confirmed": "Antwort bestaetigt und gesendet."
+  "flash.cases.confirmed": "Antwort bestaetigt und gesendet.",
+  "cases.notes.title": "Notizen",
+  "cases.notes.empty": "Noch keine Notizen.",
+  "cases.notes.placeholder": "Notiz hinzufuegen...",
+  "cases.notes.submit": "Notiz hinzufuegen",
+  "cases.notes.editPlaceholder": "Notiz bearbeiten...",
+  "cases.notes.save": "Speichern",
+  "cases.notes.cancel": "Abbrechen",
+  "cases.notes.delete": "Loeschen",
+  "cases.notes.edited": "bearbeitet",
+  "cases.notes.button": "Notizen",
+  "cases.notes.deleteConfirm": "Diese Notiz loeschen?"
 }

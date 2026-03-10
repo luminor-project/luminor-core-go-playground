@@ -205,3 +205,53 @@
 .lmn-action-tray-buttons {
     @apply flex flex-wrap items-start gap-2 md:justify-end;
 }
+
+/* ── Notes pane (third column) ──────────────────────────────────────── */
+
+.lmn-workbench-grid-with-notes {
+    @apply grid gap-0 lg:grid-cols-12;
+}
+
+.lmn-workbench-pane-detail-with-notes {
+    @apply lg:col-span-5 xl:col-span-5 bg-stone-50 dark:bg-stone-950 border-t lg:border-t-0 lg:border-l border-stone-200 dark:border-stone-700 min-h-[280px];
+}
+
+.lmn-workbench-pane-notes {
+    @apply lg:col-span-3 xl:col-span-4 bg-white dark:bg-stone-900 border-t lg:border-t-0 lg:border-l border-stone-200 dark:border-stone-700 min-h-[280px];
+}
+
+.lmn-notes-header {
+    @apply p-4 border-b border-stone-200 dark:border-stone-700 flex items-center justify-between;
+}
+
+.lmn-notes-list {
+    @apply p-4 space-y-3;
+}
+
+.lmn-note-card {
+    @apply rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/50 p-3;
+}
+
+.lmn-note-meta {
+    @apply flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1;
+}
+
+.lmn-note-body {
+    @apply text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap;
+}
+
+.lmn-note-actions {
+    @apply flex items-center gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-700;
+}
+
+.lmn-notes-form {
+    @apply p-4 border-t border-stone-200 dark:border-stone-700;
+}
+
+.lmn-timeline-notes-btn {
+    @apply inline-flex items-center gap-1 text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors;
+}
+
+.lmn-timeline-notes-btn-active {
+    @apply text-primary-600 dark:text-primary-400;
+}

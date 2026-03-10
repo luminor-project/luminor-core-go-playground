@@ -22,3 +22,21 @@ type ConfirmOutboundMessageDTO struct {
 	ConfirmedByPartyID string
 	Body               string
 }
+
+// AddNoteDTO holds the data for adding a note to a timeline entry.
+type AddNoteDTO struct {
+	EntryIndex int
+	AuthorID   string
+	Body       string
+}
+
+// EditNoteDTO holds the data for editing a note.
+type EditNoteDTO struct {
+	NoteID string
+	Body   string
+}
+
+// DeleteNoteDTO holds the data for soft-deleting a note.
+type DeleteNoteDTO struct {
+	NoteID string
+}

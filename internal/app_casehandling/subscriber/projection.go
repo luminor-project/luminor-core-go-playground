@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
@@ -16,6 +17,9 @@ type dashboardUpdater interface {
 	Upsert(ctx context.Context, row infra.CaseDashboardRow) error
 	AppendTimeline(ctx context.Context, workItemID string, entry infra.TimelineEntry) error
 	UpdateStatus(ctx context.Context, workItemID, status string) error
+	AddNoteToTimeline(ctx context.Context, workItemID string, entryIndex int, note infra.TimelineNote) error
+	EditNoteOnTimeline(ctx context.Context, workItemID, noteID, body string, editedAt time.Time) error
+	DeleteNoteOnTimeline(ctx context.Context, workItemID, noteID string) error
 }
 
 type partyLookup interface {
@@ -36,6 +40,7 @@ func RegisterProjectionSubscribers(
 ) {
 	subscribeCreationEvents(bus, store, parties, subjects)
 	subscribeTimelineEvents(bus, store, parties)
+	subscribeNoteEvents(bus, store, parties)
 }
 
 func subscribeCreationEvents(
@@ -131,6 +136,34 @@ func subscribeTimelineEvents(
 			return err
 		}
 		return store.UpdateStatus(ctx, e.WorkItemID, "resolved")
+	})
+}
+
+func subscribeNoteEvents(
+	bus *eventbus.Bus,
+	store dashboardUpdater,
+	parties partyLookup,
+) {
+	eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.NoteAddedToTimelineEntryEvent) error {
+		slog.Info("projecting NoteAddedToTimelineEntryEvent", "work_item_id", e.WorkItemID, "note_id", e.NoteID, "entry_index", e.EntryIndex)
+		authorName, _ := resolveParty(ctx, parties, e.AuthorID)
+		return store.AddNoteToTimeline(ctx, e.WorkItemID, e.EntryIndex, infra.TimelineNote{
+			NoteID:     e.NoteID,
+			AuthorID:   e.AuthorID,
+			AuthorName: authorName,
+			Body:       e.Body,
+			CreatedAt:  e.CreatedAt,
+		})
+	})
+
+	eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.NoteEditedOnTimelineEntryEvent) error {
+		slog.Info("projecting NoteEditedOnTimelineEntryEvent", "work_item_id", e.WorkItemID, "note_id", e.NoteID)
+		return store.EditNoteOnTimeline(ctx, e.WorkItemID, e.NoteID, e.Body, e.EditedAt)
+	})
+
+	eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.NoteDeletedFromTimelineEntryEvent) error {
+		slog.Info("projecting NoteDeletedFromTimelineEntryEvent", "work_item_id", e.WorkItemID, "note_id", e.NoteID)
+		return store.DeleteNoteOnTimeline(ctx, e.WorkItemID, e.NoteID)
 	})
 }
 

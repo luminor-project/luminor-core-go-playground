@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web/templates"
@@ -19,19 +20,28 @@ type dashboardReader interface {
 
 type caseUseCases interface {
 	ConfirmAndSend(ctx context.Context, workItemID, operatorPartyID, body string) error
+	AddNote(ctx context.Context, workItemID string, entryIndex int, authorID, body string) (string, error)
+	EditNote(ctx context.Context, workItemID, noteID, body string) error
+	DeleteNote(ctx context.Context, workItemID, noteID string) error
+}
+
+type notesReader interface {
+	FindNotesByEntryIndex(ctx context.Context, workItemID string, entryIndex int) ([]infra.TimelineNote, error)
 }
 
 // Handler handles HTTP requests for the case handling UI.
 type Handler struct {
 	dashboard dashboardReader
 	cases     caseUseCases
+	notes     notesReader
 }
 
 // NewHandler creates a new case handling HTTP handler.
-func NewHandler(dashboard dashboardReader, cases caseUseCases) *Handler {
+func NewHandler(dashboard dashboardReader, cases caseUseCases, notes notesReader) *Handler {
 	return &Handler{
 		dashboard: dashboard,
 		cases:     cases,
+		notes:     notes,
 	}
 }
 
@@ -106,4 +116,133 @@ func (h *Handler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), fmt.Sprintf("/cases/%s", id)), http.StatusSeeOther)
+}
+
+// ShowNotesPartial renders the notes pane for a specific timeline entry.
+func (h *Handler) ShowNotesPartial(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	entryIndexStr := r.PathValue("entryIndex")
+	entryIndex, err := strconv.Atoi(entryIndexStr)
+	if err != nil {
+		http.Error(w, "invalid entry index", http.StatusBadRequest)
+		return
+	}
+
+	notes, err := h.notes.FindNotesByEntryIndex(r.Context(), id, entryIndex)
+	if err != nil {
+		slog.Error("failed to load notes", "id", id, "entry_index", entryIndex, "error", err)
+		http.Error(w, "failed to load notes", http.StatusInternalServerError)
+		return
+	}
+
+	render.Page(w, r, templates.NotesPane(id, entryIndex, notes))
+}
+
+// HandleAddNote adds a note to a timeline entry.
+func (h *Handler) HandleAddNote(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	entryIndexStr := r.PathValue("entryIndex")
+	entryIndex, err := strconv.Atoi(entryIndexStr)
+	if err != nil {
+		http.Error(w, "invalid entry index", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	body := r.FormValue("body")
+	if body == "" {
+		http.Error(w, "note body required", http.StatusBadRequest)
+		return
+	}
+
+	// Hardcoded operator for V1 demo
+	authorID := "party-sarah"
+
+	_, err = h.cases.AddNote(r.Context(), id, entryIndex, authorID, body)
+	if err != nil {
+		slog.Error("add note failed", "id", id, "entry_index", entryIndex, "error", err)
+		http.Error(w, "failed to add note", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated notes pane
+	notes, err := h.notes.FindNotesByEntryIndex(r.Context(), id, entryIndex)
+	if err != nil {
+		slog.Error("failed to reload notes", "id", id, "entry_index", entryIndex, "error", err)
+		http.Error(w, "failed to reload notes", http.StatusInternalServerError)
+		return
+	}
+
+	render.Page(w, r, templates.NotesPane(id, entryIndex, notes))
+}
+
+// HandleEditNote edits an existing note.
+func (h *Handler) HandleEditNote(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	noteID := r.PathValue("noteId")
+	entryIndexStr := r.PathValue("entryIndex")
+	entryIndex, err := strconv.Atoi(entryIndexStr)
+	if err != nil {
+		http.Error(w, "invalid entry index", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	body := r.FormValue("body")
+	if body == "" {
+		http.Error(w, "note body required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.cases.EditNote(r.Context(), id, noteID, body); err != nil {
+		slog.Error("edit note failed", "id", id, "note_id", noteID, "error", err)
+		http.Error(w, "failed to edit note", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated notes pane
+	notes, err := h.notes.FindNotesByEntryIndex(r.Context(), id, entryIndex)
+	if err != nil {
+		slog.Error("failed to reload notes", "id", id, "entry_index", entryIndex, "error", err)
+		http.Error(w, "failed to reload notes", http.StatusInternalServerError)
+		return
+	}
+
+	render.Page(w, r, templates.NotesPane(id, entryIndex, notes))
+}
+
+// HandleDeleteNote soft-deletes a note.
+func (h *Handler) HandleDeleteNote(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	noteID := r.PathValue("noteId")
+	entryIndexStr := r.PathValue("entryIndex")
+	entryIndex, err := strconv.Atoi(entryIndexStr)
+	if err != nil {
+		http.Error(w, "invalid entry index", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.cases.DeleteNote(r.Context(), id, noteID); err != nil {
+		slog.Error("delete note failed", "id", id, "note_id", noteID, "error", err)
+		http.Error(w, "failed to delete note", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated notes pane
+	notes, err := h.notes.FindNotesByEntryIndex(r.Context(), id, entryIndex)
+	if err != nil {
+		slog.Error("failed to reload notes", "id", id, "entry_index", entryIndex, "error", err)
+		http.Error(w, "failed to reload notes", http.StatusInternalServerError)
+		return
+	}
+
+	render.Page(w, r, templates.NotesPane(id, entryIndex, notes))
 }

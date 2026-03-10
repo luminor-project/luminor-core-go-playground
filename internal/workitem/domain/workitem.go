@@ -14,24 +14,29 @@ const (
 )
 
 var (
-	ErrAlreadyCreated    = errors.New("work item already created")
-	ErrNotCreated        = errors.New("work item not yet created")
-	ErrNoPendingDraft    = errors.New("no pending draft to confirm")
-	ErrAlreadyConfirmed  = errors.New("outbound message already confirmed")
-	ErrInvalidActionKind = errors.New("invalid action kind")
-	ErrAlreadyResolved   = errors.New("work item already resolved")
+	ErrAlreadyCreated     = errors.New("work item already created")
+	ErrNotCreated         = errors.New("work item not yet created")
+	ErrNoPendingDraft     = errors.New("no pending draft to confirm")
+	ErrAlreadyConfirmed   = errors.New("outbound message already confirmed")
+	ErrInvalidActionKind  = errors.New("invalid action kind")
+	ErrAlreadyResolved    = errors.New("work item already resolved")
+	ErrNoteNotFound       = errors.New("note not found")
+	ErrNoteAlreadyDeleted = errors.New("note already deleted")
+	ErrInvalidEntryIndex  = errors.New("invalid timeline entry index")
 )
 
 // WorkItem is the event-sourced aggregate for case work items.
 type WorkItem struct {
-	ID              string
-	Status          string
-	Version         int
-	PartyIDs        []string
-	SubjectID       string
-	Created         bool
-	HasPendingDraft bool
-	Confirmed       bool
+	ID                 string
+	Status             string
+	Version            int
+	PartyIDs           []string
+	SubjectID          string
+	Created            bool
+	HasPendingDraft    bool
+	Confirmed          bool
+	TimelineEntryCount int
+	NoteIDs            map[string]bool // noteID → deleted?
 }
 
 // Apply reconstitutes state from a single event payload.
@@ -52,21 +57,37 @@ func (w *WorkItem) Apply(eventType string, payload any) {
 		w.SubjectID = e.SubjectID
 
 	case EventInboundMessageRecorded:
-		// No state change beyond what's already tracked
+		w.TimelineEntryCount++
 
 	case EventAssistantActionRecorded:
 		e := payload.(AssistantActionRecorded)
 		if e.DraftStatus == "pending" {
 			w.HasPendingDraft = true
 		}
+		w.TimelineEntryCount++
 
 	case EventOutboundMessageRecorded:
 		w.HasPendingDraft = false
 		w.Confirmed = true
+		w.TimelineEntryCount++
 
 	case EventWorkItemStatusChanged:
 		e := payload.(WorkItemStatusChanged)
 		w.Status = e.NewStatus
+
+	case EventNoteAddedToTimelineEntry:
+		e := payload.(NoteAddedToTimelineEntry)
+		if w.NoteIDs == nil {
+			w.NoteIDs = make(map[string]bool)
+		}
+		w.NoteIDs[e.NoteID] = false
+
+	case EventNoteEditedOnTimelineEntry:
+		// No state change beyond what's tracked
+
+	case EventNoteDeletedFromTimelineEntry:
+		e := payload.(NoteDeletedFromTimelineEntry)
+		w.NoteIDs[e.NoteID] = true
 	}
 
 	w.Version++
@@ -214,6 +235,94 @@ func (w *WorkItem) ConfirmOutboundMessage(cmd ConfirmCmd) ([]DomainEvent, error)
 	}
 
 	return events, nil
+}
+
+// AddNoteCmd holds the data for adding a note to a timeline entry.
+type AddNoteCmd struct {
+	WorkItemID string
+	NoteID     string
+	EntryIndex int
+	AuthorID   string
+	Body       string
+}
+
+// AddNote adds a note to a timeline entry.
+func (w *WorkItem) AddNote(cmd AddNoteCmd) ([]DomainEvent, error) {
+	if !w.Created {
+		return nil, ErrNotCreated
+	}
+	if cmd.EntryIndex < 0 || cmd.EntryIndex >= w.TimelineEntryCount {
+		return nil, ErrInvalidEntryIndex
+	}
+
+	return []DomainEvent{
+		{EventType: EventNoteAddedToTimelineEntry, Payload: NoteAddedToTimelineEntry{
+			WorkItemID: cmd.WorkItemID,
+			NoteID:     cmd.NoteID,
+			EntryIndex: cmd.EntryIndex,
+			AuthorID:   cmd.AuthorID,
+			Body:       cmd.Body,
+			CreatedAt:  time.Now(),
+		}},
+	}, nil
+}
+
+// EditNoteCmd holds the data for editing a note's body.
+type EditNoteCmd struct {
+	WorkItemID string
+	NoteID     string
+	Body       string
+}
+
+// EditNote edits an existing note's body.
+func (w *WorkItem) EditNote(cmd EditNoteCmd) ([]DomainEvent, error) {
+	if !w.Created {
+		return nil, ErrNotCreated
+	}
+	deleted, exists := w.NoteIDs[cmd.NoteID]
+	if !exists {
+		return nil, ErrNoteNotFound
+	}
+	if deleted {
+		return nil, ErrNoteAlreadyDeleted
+	}
+
+	return []DomainEvent{
+		{EventType: EventNoteEditedOnTimelineEntry, Payload: NoteEditedOnTimelineEntry{
+			WorkItemID: cmd.WorkItemID,
+			NoteID:     cmd.NoteID,
+			Body:       cmd.Body,
+			EditedAt:   time.Now(),
+		}},
+	}, nil
+}
+
+// DeleteNoteCmd holds the data for soft-deleting a note.
+type DeleteNoteCmd struct {
+	WorkItemID string
+	NoteID     string
+}
+
+// DeleteNote soft-deletes a note.
+func (w *WorkItem) DeleteNote(cmd DeleteNoteCmd) ([]DomainEvent, error) {
+	if !w.Created {
+		return nil, ErrNotCreated
+	}
+	deleted, exists := w.NoteIDs[cmd.NoteID]
+	if !exists {
+		return nil, ErrNoteNotFound
+	}
+	if deleted {
+		return nil, ErrNoteAlreadyDeleted
+	}
+
+	return []DomainEvent{
+		{EventType: EventNoteDeletedFromTimelineEntry, Payload: NoteDeletedFromTimelineEntry{
+			WorkItemID: cmd.WorkItemID,
+			NoteID:     cmd.NoteID,
+			DeletedAt:  time.Now(),
+		}},
+	}, nil
 }
 
 // SetStatusCmd holds the data for changing the work item status.

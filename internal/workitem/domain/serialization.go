@@ -7,13 +7,16 @@ import (
 
 // eventFactory maps event types to factory functions that return a pointer to the target struct.
 var eventFactory = map[string]func() any{
-	EventWorkItemCreated:         func() any { return &WorkItemCreated{} },
-	EventPartyLinked:             func() any { return &PartyLinkedToWorkItem{} },
-	EventSubjectLinked:           func() any { return &SubjectLinkedToWorkItem{} },
-	EventInboundMessageRecorded:  func() any { return &InboundMessageRecorded{} },
-	EventAssistantActionRecorded: func() any { return &AssistantActionRecorded{} },
-	EventOutboundMessageRecorded: func() any { return &OutboundMessageRecorded{} },
-	EventWorkItemStatusChanged:   func() any { return &WorkItemStatusChanged{} },
+	EventWorkItemCreated:              func() any { return &WorkItemCreated{} },
+	EventPartyLinked:                  func() any { return &PartyLinkedToWorkItem{} },
+	EventSubjectLinked:                func() any { return &SubjectLinkedToWorkItem{} },
+	EventInboundMessageRecorded:       func() any { return &InboundMessageRecorded{} },
+	EventAssistantActionRecorded:      func() any { return &AssistantActionRecorded{} },
+	EventOutboundMessageRecorded:      func() any { return &OutboundMessageRecorded{} },
+	EventWorkItemStatusChanged:        func() any { return &WorkItemStatusChanged{} },
+	EventNoteAddedToTimelineEntry:     func() any { return &NoteAddedToTimelineEntry{} },
+	EventNoteEditedOnTimelineEntry:    func() any { return &NoteEditedOnTimelineEntry{} },
+	EventNoteDeletedFromTimelineEntry: func() any { return &NoteDeletedFromTimelineEntry{} },
 }
 
 // DeserializeEvent converts a raw JSON payload into a typed event struct based on the event type.
@@ -43,6 +46,12 @@ func DeserializeEvent(eventType string, raw json.RawMessage) (any, error) {
 	case *OutboundMessageRecorded:
 		return *v, nil
 	case *WorkItemStatusChanged:
+		return *v, nil
+	case *NoteAddedToTimelineEntry:
+		return *v, nil
+	case *NoteEditedOnTimelineEntry:
+		return *v, nil
+	case *NoteDeletedFromTimelineEntry:
 		return *v, nil
 	default:
 		return nil, fmt.Errorf("unhandled event type: %s", eventType)

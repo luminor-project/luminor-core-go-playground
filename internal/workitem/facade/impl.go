@@ -17,6 +17,9 @@ var _ interface {
 	IntakeInboundMessage(ctx context.Context, dto IntakeInboundMessageDTO) (string, error)
 	RecordAssistantAction(ctx context.Context, workItemID string, dto RecordAssistantActionDTO) error
 	ConfirmOutboundMessage(ctx context.Context, workItemID string, dto ConfirmOutboundMessageDTO) error
+	AddNote(ctx context.Context, workItemID string, dto AddNoteDTO) (string, error)
+	EditNote(ctx context.Context, workItemID string, dto EditNoteDTO) error
+	DeleteNote(ctx context.Context, workItemID string, dto DeleteNoteDTO) error
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -106,6 +109,92 @@ func (f *facadeImpl) ConfirmOutboundMessage(ctx context.Context, workItemID stri
 	})
 	if err != nil {
 		return fmt.Errorf("confirm outbound message: %w", err)
+	}
+
+	uncommitted := toUncommitted(domainEvents)
+	stored, err := f.store.Append(ctx, streamID, version, uncommitted)
+	if err != nil {
+		return fmt.Errorf("append events: %w", err)
+	}
+
+	f.publishAll(ctx, stored)
+
+	return nil
+}
+
+// AddNote adds a note to a timeline entry on an existing work item.
+func (f *facadeImpl) AddNote(ctx context.Context, workItemID string, dto AddNoteDTO) (string, error) {
+	streamID := "workitem-" + workItemID
+	wi, version, err := f.loadAggregate(ctx, streamID)
+	if err != nil {
+		return "", err
+	}
+
+	noteID := uuid.New().String()
+	domainEvents, err := wi.AddNote(domain.AddNoteCmd{
+		WorkItemID: workItemID,
+		NoteID:     noteID,
+		EntryIndex: dto.EntryIndex,
+		AuthorID:   dto.AuthorID,
+		Body:       dto.Body,
+	})
+	if err != nil {
+		return "", fmt.Errorf("add note: %w", err)
+	}
+
+	uncommitted := toUncommitted(domainEvents)
+	stored, err := f.store.Append(ctx, streamID, version, uncommitted)
+	if err != nil {
+		return "", fmt.Errorf("append events: %w", err)
+	}
+
+	f.publishAll(ctx, stored)
+
+	return noteID, nil
+}
+
+// EditNote edits an existing note on a work item.
+func (f *facadeImpl) EditNote(ctx context.Context, workItemID string, dto EditNoteDTO) error {
+	streamID := "workitem-" + workItemID
+	wi, version, err := f.loadAggregate(ctx, streamID)
+	if err != nil {
+		return err
+	}
+
+	domainEvents, err := wi.EditNote(domain.EditNoteCmd{
+		WorkItemID: workItemID,
+		NoteID:     dto.NoteID,
+		Body:       dto.Body,
+	})
+	if err != nil {
+		return fmt.Errorf("edit note: %w", err)
+	}
+
+	uncommitted := toUncommitted(domainEvents)
+	stored, err := f.store.Append(ctx, streamID, version, uncommitted)
+	if err != nil {
+		return fmt.Errorf("append events: %w", err)
+	}
+
+	f.publishAll(ctx, stored)
+
+	return nil
+}
+
+// DeleteNote soft-deletes a note on a work item.
+func (f *facadeImpl) DeleteNote(ctx context.Context, workItemID string, dto DeleteNoteDTO) error {
+	streamID := "workitem-" + workItemID
+	wi, version, err := f.loadAggregate(ctx, streamID)
+	if err != nil {
+		return err
+	}
+
+	domainEvents, err := wi.DeleteNote(domain.DeleteNoteCmd{
+		WorkItemID: workItemID,
+		NoteID:     dto.NoteID,
+	})
+	if err != nil {
+		return fmt.Errorf("delete note: %w", err)
 	}
 
 	uncommitted := toUncommitted(domainEvents)
@@ -212,6 +301,31 @@ func (f *facadeImpl) publishAll(ctx context.Context, stored []eventstore.StoredE
 				WorkItemID: e.WorkItemID,
 				OldStatus:  e.OldStatus,
 				NewStatus:  e.NewStatus,
+			})
+		case domain.EventNoteAddedToTimelineEntry:
+			e := payload.(domain.NoteAddedToTimelineEntry)
+			publishErr = eventbus.Publish(ctx, f.bus, NoteAddedToTimelineEntryEvent{
+				WorkItemID: e.WorkItemID,
+				NoteID:     e.NoteID,
+				EntryIndex: e.EntryIndex,
+				AuthorID:   e.AuthorID,
+				Body:       e.Body,
+				CreatedAt:  e.CreatedAt,
+			})
+		case domain.EventNoteEditedOnTimelineEntry:
+			e := payload.(domain.NoteEditedOnTimelineEntry)
+			publishErr = eventbus.Publish(ctx, f.bus, NoteEditedOnTimelineEntryEvent{
+				WorkItemID: e.WorkItemID,
+				NoteID:     e.NoteID,
+				Body:       e.Body,
+				EditedAt:   e.EditedAt,
+			})
+		case domain.EventNoteDeletedFromTimelineEntry:
+			e := payload.(domain.NoteDeletedFromTimelineEntry)
+			publishErr = eventbus.Publish(ctx, f.bus, NoteDeletedFromTimelineEntryEvent{
+				WorkItemID: e.WorkItemID,
+				NoteID:     e.NoteID,
+				DeletedAt:  e.DeletedAt,
 			})
 		}
 

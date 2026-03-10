@@ -4,13 +4,16 @@ import "time"
 
 // Event type constants for the workitem aggregate.
 const (
-	EventWorkItemCreated         = "workitem.WorkItemCreated.v1"
-	EventPartyLinked             = "workitem.PartyLinkedToWorkItem.v1"
-	EventSubjectLinked           = "workitem.SubjectLinkedToWorkItem.v1"
-	EventInboundMessageRecorded  = "workitem.InboundMessageRecorded.v1"
-	EventAssistantActionRecorded = "workitem.AssistantActionRecorded.v1"
-	EventOutboundMessageRecorded = "workitem.OutboundMessageRecorded.v1"
-	EventWorkItemStatusChanged   = "workitem.WorkItemStatusChanged.v1"
+	EventWorkItemCreated              = "workitem.WorkItemCreated.v1"
+	EventPartyLinked                  = "workitem.PartyLinkedToWorkItem.v1"
+	EventSubjectLinked                = "workitem.SubjectLinkedToWorkItem.v1"
+	EventInboundMessageRecorded       = "workitem.InboundMessageRecorded.v1"
+	EventAssistantActionRecorded      = "workitem.AssistantActionRecorded.v1"
+	EventOutboundMessageRecorded      = "workitem.OutboundMessageRecorded.v1"
+	EventWorkItemStatusChanged        = "workitem.WorkItemStatusChanged.v1"
+	EventNoteAddedToTimelineEntry     = "workitem.NoteAddedToTimelineEntry.v1"
+	EventNoteEditedOnTimelineEntry    = "workitem.NoteEditedOnTimelineEntry.v1"
+	EventNoteDeletedFromTimelineEntry = "workitem.NoteDeletedFromTimelineEntry.v1"
 )
 
 // DomainEvent is what command methods return. Domain-local, zero platform imports.
@@ -69,4 +72,29 @@ type WorkItemStatusChanged struct {
 	WorkItemID string `json:"work_item_id"`
 	OldStatus  string `json:"old_status"`
 	NewStatus  string `json:"new_status"`
+}
+
+// NoteAddedToTimelineEntry is emitted when a note is added to a timeline entry.
+type NoteAddedToTimelineEntry struct {
+	WorkItemID string    `json:"work_item_id"`
+	NoteID     string    `json:"note_id"`
+	EntryIndex int       `json:"entry_index"`
+	AuthorID   string    `json:"author_id"`
+	Body       string    `json:"body"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// NoteEditedOnTimelineEntry is emitted when a note's body is edited.
+type NoteEditedOnTimelineEntry struct {
+	WorkItemID string    `json:"work_item_id"`
+	NoteID     string    `json:"note_id"`
+	Body       string    `json:"body"`
+	EditedAt   time.Time `json:"edited_at"`
+}
+
+// NoteDeletedFromTimelineEntry is emitted when a note is soft-deleted.
+type NoteDeletedFromTimelineEntry struct {
+	WorkItemID string    `json:"work_item_id"`
+	NoteID     string    `json:"note_id"`
+	DeletedAt  time.Time `json:"deleted_at"`
 }

@@ -161,5 +161,16 @@
   "cases.confirm.placeholder": "Edit or confirm the response...",
   "cases.confirm.submit": "Confirm and Send",
   "flash.cases.confirmFailed": "Failed to confirm and send.",
-  "flash.cases.confirmed": "Response confirmed and sent."
+  "flash.cases.confirmed": "Response confirmed and sent.",
+  "cases.notes.title": "Notes",
+  "cases.notes.empty": "No notes yet.",
+  "cases.notes.placeholder": "Add a note...",
+  "cases.notes.submit": "Add Note",
+  "cases.notes.editPlaceholder": "Edit note...",
+  "cases.notes.save": "Save",
+  "cases.notes.cancel": "Cancel",
+  "cases.notes.delete": "Delete",
+  "cases.notes.edited": "edited",
+  "cases.notes.button": "Notes",
+  "cases.notes.deleteConfirm": "Delete this note?"
 }

@@ -53,3 +53,28 @@ type WorkItemStatusChangedEvent struct {
 	OldStatus  string
 	NewStatus  string
 }
+
+// NoteAddedToTimelineEntryEvent is published when a note is added to a timeline entry.
+type NoteAddedToTimelineEntryEvent struct {
+	WorkItemID string
+	NoteID     string
+	EntryIndex int
+	AuthorID   string
+	Body       string
+	CreatedAt  time.Time
+}
+
+// NoteEditedOnTimelineEntryEvent is published when a note is edited.
+type NoteEditedOnTimelineEntryEvent struct {
+	WorkItemID string
+	NoteID     string
+	Body       string
+	EditedAt   time.Time
+}
+
+// NoteDeletedFromTimelineEntryEvent is published when a note is soft-deleted.
+type NoteDeletedFromTimelineEntryEvent struct {
+	WorkItemID string
+	NoteID     string
+	DeletedAt  time.Time
+}

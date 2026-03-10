@@ -242,5 +242,5 @@ func wireCasehandling(cfg config.Config, db *pgxpool.Pool, bus *eventbus.Bus, mu
 	cFacade := casefacade.New(wiFacade, agentPort, subjectFac)
 
 	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
-	caseweb.RegisterRoutes(mux, dashboardStore, cFacade)
+	caseweb.RegisterRoutes(mux, dashboardStore, cFacade, dashboardStore)
 }

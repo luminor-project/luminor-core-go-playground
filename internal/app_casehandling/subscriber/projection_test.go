@@ -44,6 +44,18 @@ func (s *fakeStore) UpdateStatus(_ context.Context, workItemID, status string) e
 	return nil
 }
 
+func (s *fakeStore) AddNoteToTimeline(_ context.Context, _ string, _ int, _ infra.TimelineNote) error {
+	return nil
+}
+
+func (s *fakeStore) EditNoteOnTimeline(_ context.Context, _, _, _ string, _ time.Time) error {
+	return nil
+}
+
+func (s *fakeStore) DeleteNoteOnTimeline(_ context.Context, _, _ string) error {
+	return nil
+}
+
 type fakePartyLookup struct {
 	data map[string]partyfacade.PartyInfoDTO
 }
