@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Seed demo data (UC-01 golden path cases)"
+set -euo pipefail
+
+mise run in-app-container go run ./cmd/seed
