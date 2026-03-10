@@ -33,7 +33,7 @@ DEV_PID=$!
 
 echo "==> Waiting for app to become ready..."
 for i in $(seq 1 30); do
-    if curl -s --max-time 2 -o /dev/null http://localhost:8080; then
+    if curl -s --max-time 2 -o /dev/null http://localhost:8090; then
         echo "App is ready!"
         mise run browser || true
         echo ""
