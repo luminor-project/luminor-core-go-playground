@@ -2,11 +2,13 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web/templates"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
 )
 
@@ -33,8 +35,9 @@ func NewHandler(dashboard dashboardReader, cases caseUseCases) *Handler {
 	}
 }
 
-// ShowCaseList renders the case list page.
-func (h *Handler) ShowCaseList(w http.ResponseWriter, r *http.Request) {
+// ShowCaseWorkbench renders the two-pane workbench (list + detail).
+// Handles both GET /cases and GET /cases/{id}.
+func (h *Handler) ShowCaseWorkbench(w http.ResponseWriter, r *http.Request) {
 	cases, err := h.dashboard.FindAll(r.Context())
 	if err != nil {
 		slog.Error("failed to load cases", "error", err)
@@ -42,11 +45,26 @@ func (h *Handler) ShowCaseList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render.Page(w, r, templates.CaseList(cases))
+	id := r.PathValue("id")
+
+	var selected *infra.CaseDashboardRow
+	if id != "" {
+		c, err := h.dashboard.FindByID(r.Context(), id)
+		if err != nil {
+			slog.Error("failed to load case", "id", id, "error", err)
+			http.Error(w, "case not found", http.StatusNotFound)
+			return
+		}
+		selected = &c
+	} else if len(cases) > 0 {
+		selected = &cases[0]
+	}
+
+	render.Page(w, r, templates.CaseWorkbench(cases, selected))
 }
 
-// ShowCaseDetail renders the case detail page with timeline.
-func (h *Handler) ShowCaseDetail(w http.ResponseWriter, r *http.Request) {
+// ShowCaseDetailPartial renders just the detail pane (htmx partial).
+func (h *Handler) ShowCaseDetailPartial(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "missing case ID", http.StatusBadRequest)
@@ -60,7 +78,7 @@ func (h *Handler) ShowCaseDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render.Page(w, r, templates.CaseDetail(c))
+	render.Page(w, r, templates.CaseDetailPane(c))
 }
 
 // HandleConfirm processes the confirm-and-send action.
@@ -87,5 +105,5 @@ func (h *Handler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/cases/"+id, http.StatusSeeOther)
+	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), fmt.Sprintf("/cases/%s", id)), http.StatusSeeOther)
 }

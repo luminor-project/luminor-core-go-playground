@@ -1,117 +1,71 @@
 package templates
 
 import (
+	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
-	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 )
 
-func threadItemClass(actorKind string) string {
-	switch actorKind {
-	case "human":
-		return "lmn-thread-item lmn-thread-item-tenant"
-	case "assistant":
-		return "lmn-thread-item lmn-thread-item-ai"
-	default:
-		return "lmn-thread-item lmn-thread-item-system"
-	}
-}
+// ── Detail-specific helpers ────────────────────────────────────────────
 
-func threadMetaClass(actorKind string) string {
-	if actorKind == "assistant" {
-		return "lmn-thread-meta lmn-thread-meta-ai"
-	}
-	return "lmn-thread-meta"
-}
-
-func eventLabel(eventType string) string {
+func eventLabel(ctx context.Context, eventType string) string {
 	switch eventType {
 	case "inbound_message":
-		return "Eingehende Nachricht"
+		return i18n.T(ctx, "cases.event.inboundMessage")
 	case "assistant_action_lookup":
-		return "KI-Aktion · Recherche"
+		return i18n.T(ctx, "cases.event.assistantActionLookup")
 	case "assistant_action_draft":
-		return "KI-Aktion · Entwurf"
+		return i18n.T(ctx, "cases.event.assistantActionDraft")
 	case "outbound_message":
-		return "Ausgehende Nachricht"
+		return i18n.T(ctx, "cases.event.outboundMessage")
 	default:
 		return eventType
 	}
 }
 
-func actorIcon(actorKind string) string {
-	switch actorKind {
-	case "human":
-		return "👤"
-	case "assistant":
-		return "🤖"
-	default:
-		return "⚙️"
+func timelineIconClass(entry infra.TimelineEntry) string {
+	if entry.ActorKind == "assistant" {
+		return "lmn-timeline-icon lmn-timeline-icon-ai"
 	}
+	if entry.EventType == "outbound_message" {
+		return "lmn-timeline-icon lmn-timeline-icon-outbound"
+	}
+	if entry.ActorKind == "human" {
+		return "lmn-timeline-icon lmn-timeline-icon-human"
+	}
+	return "lmn-timeline-icon lmn-timeline-icon-system"
 }
 
-templ CaseDetail(c infra.CaseDashboardRow) {
-	@layouts.AppShell(fmt.Sprintf("Fall — %s", c.SubjectName)) {
-		<div class="max-w-4xl mx-auto py-8">
-			<div class="mb-6">
-				<a href="/cases" class="lmn-link-default text-sm">&larr; Zurück zur Übersicht</a>
-			</div>
+func isAIAction(entry infra.TimelineEntry) bool {
+	return entry.ActorKind == "assistant"
+}
 
-			<div class="lmn-card">
-				<div class="lmn-card-title">
-					<div class="lmn-card-title-content">
-						<div class="flex flex-wrap items-center gap-3">
-							<h1 class="lmn-card-title-text">{ c.SubjectName }</h1>
-							<span class={ statusBadgeClass(c.Status) }>{ statusLabel(c.Status) }</span>
-						</div>
-						if c.SubjectDetail != "" {
-							<p class="lmn-card-subtitle">{ c.SubjectDetail }</p>
-						}
-					</div>
-				</div>
-				<div class="lmn-card-content">
-					if c.PartyName != "" {
-						<p class="lmn-text-small mb-4">
-							Absender: <span class="font-medium">{ c.PartyName }</span>
-						</p>
-					}
+func formatDateTime(entry infra.TimelineEntry) string {
+	return entry.RecordedAt.Format("02 Jan 15:04")
+}
 
-					<!-- Timeline -->
-					<div class="lmn-workbench-thread lmn-thread">
-						for _, entry := range c.Timeline {
-							<div class={ threadItemClass(entry.ActorKind) }>
-								<p class={ threadMetaClass(entry.ActorKind) }>
-									{ actorIcon(entry.ActorKind) } { entry.ActorName } · { eventLabel(entry.EventType) }
-								</p>
-								<p class="lmn-thread-copy">{ entry.Content }</p>
-								if entry.DraftStatus == "pending" {
-									<span class="lmn-badge lmn-badge-warning mt-2">Entwurf — Bestätigung ausstehend</span>
-								}
-							</div>
-						}
-					</div>
-
-					<!-- Confirm button for pending drafts -->
-					if c.Status == "pending_confirmation" {
-						<div class="lmn-action-tray mt-6">
-							<form action={ templ.SafeURL(fmt.Sprintf("/cases/%s/confirm", c.WorkItemID)) } method="post" class="w-full">
-								<textarea
-									name="body"
-									class="lmn-form-textarea w-full"
-									rows="4"
-									placeholder="Antwort bearbeiten oder bestätigen..."
-								>{ pendingDraftBody(c) }</textarea>
-								<div class="mt-3 flex justify-end">
-									<button type="submit" class="lmn-button-default">Bestätigen und Senden</button>
-								</div>
-							</form>
-						</div>
-					}
-				</div>
-			</div>
-		</div>
+func countPendingDrafts(timeline []infra.TimelineEntry) int {
+	n := 0
+	for _, e := range timeline {
+		if e.DraftStatus == "pending" {
+			n++
+		}
 	}
+	return n
+}
+
+func aiActionLabel(ctx context.Context, eventType string) string {
+	if strings.Contains(eventType, "lookup") {
+		return i18n.T(ctx, "cases.aiSummary.actionLookup")
+	}
+	if strings.Contains(eventType, "draft") {
+		return i18n.T(ctx, "cases.aiSummary.actionDraft")
+	}
+	return eventType
 }
 
 func pendingDraftBody(c infra.CaseDashboardRow) string {
@@ -121,4 +75,166 @@ func pendingDraftBody(c infra.CaseDashboardRow) string {
 		}
 	}
 	return ""
+}
+
+// ── Detail pane (used both inline in workbench and as htmx partial) ───
+
+templ CaseDetailPane(c infra.CaseDashboardRow) {
+	<!-- Case Header -->
+	<div class="lmn-workbench-detail-header">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div>
+				<div class="flex items-center gap-3 mb-2">
+					<span class="text-sm font-medium text-stone-500 dark:text-stone-400">{ shortID(c.WorkItemID) }</span>
+					<span class={ statusBadgeClass(c.Status) }>{ statusLabel(ctx, c.Status) }</span>
+				</div>
+				<h1 class="font-display text-2xl font-semibold text-primary-900 dark:text-primary-100">{ c.SubjectName }</h1>
+				if c.SubjectDetail != "" {
+					<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">{ c.SubjectDetail }</p>
+				}
+			</div>
+			<div class="text-right text-sm text-stone-500 dark:text-stone-400">
+				<p>{ i18n.T(ctx, "cases.detail.created") }: { c.CreatedAt.Format("02 Jan 2006 15:04") }</p>
+				<p>{ i18n.T(ctx, "cases.detail.updated") }: { c.UpdatedAt.Format("02 Jan 2006 15:04") }</p>
+				if c.Status == "resolved" {
+					<p class="text-green-600 dark:text-green-400">{ i18n.T(ctx, "cases.detail.resolved") }: { c.UpdatedAt.Format("02 Jan 2006 15:04") }</p>
+				}
+			</div>
+		</div>
+		if c.PartyName != "" {
+			<div class="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+				<h3 class="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">{ i18n.T(ctx, "cases.detail.contact") }</h3>
+				<span class="text-sm font-medium text-stone-700 dark:text-stone-300">{ c.PartyName }</span>
+			</div>
+		}
+	</div>
+	<!-- Thread area: AI summary + timeline -->
+	<div class="lmn-workbench-thread">
+		if c.Status != "resolved" && countAIActions(c.Timeline) > 0 {
+			@aiSummaryPanel(c)
+		}
+		<h2 class="font-display text-lg font-semibold text-primary-900 dark:text-primary-100 mb-4">{ i18n.T(ctx, "cases.detail.timeline") }</h2>
+		<div class="space-y-0">
+			for i, entry := range c.Timeline {
+				@timelineEvent(entry, i == len(c.Timeline)-1)
+			}
+		</div>
+	</div>
+	<!-- Confirm form for pending drafts -->
+	if c.Status == "pending_confirmation" {
+		<div class="lmn-action-tray">
+			<form action={ templ.SafeURL(i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/confirm", c.WorkItemID))) } method="post" class="contents">
+				<textarea
+					name="body"
+					class="lmn-form-textarea"
+					rows="3"
+					placeholder={ i18n.T(ctx, "cases.confirm.placeholder") }
+				>{ pendingDraftBody(c) }</textarea>
+				<div class="lmn-action-tray-buttons">
+					<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "cases.confirm.submit") }</button>
+				</div>
+			</form>
+		</div>
+	}
+}
+
+templ CaseDetailEmpty() {
+	<div class="flex h-full min-h-[400px] items-center justify-center text-stone-400 dark:text-stone-600">
+		<div class="text-center">
+			<svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+		</div>
+	</div>
+}
+
+templ aiSummaryPanel(c infra.CaseDashboardRow) {
+	<div class="rounded-lg border border-accent-200 dark:border-accent-800 bg-accent-50 dark:bg-accent-900/20 p-4 mb-4">
+		<div class="flex items-start gap-3">
+			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-100 dark:bg-accent-900/40 text-accent-600 dark:text-accent-400">
+				@iconSparkle("h-5 w-5")
+			</div>
+			<div class="flex-1">
+				<h3 class="font-display text-base font-semibold text-accent-800 dark:text-accent-200">{ i18n.T(ctx, "cases.aiSummary.title") }</h3>
+				<p class="mt-1 text-sm text-accent-700 dark:text-accent-300">
+					{ strings.Replace(i18n.T(ctx, "cases.aiSummary.actions"), "{count}", strconv.Itoa(countAIActions(c.Timeline)), 1) }
+					{ " " }
+					if countPendingDrafts(c.Timeline) == 1 {
+						<strong>{ strings.Replace(i18n.T(ctx, "cases.aiSummary.pendingOne"), "{count}", "1", 1) }</strong>
+					} else if countPendingDrafts(c.Timeline) > 1 {
+						<strong>{ strings.Replace(i18n.T(ctx, "cases.aiSummary.pendingMany"), "{count}", strconv.Itoa(countPendingDrafts(c.Timeline)), 1) }</strong>
+					} else {
+						{ i18n.T(ctx, "cases.aiSummary.allSent") }
+					}
+				</p>
+				<div class="mt-2 flex flex-wrap gap-2">
+					for _, entry := range c.Timeline {
+						if isAIAction(entry) {
+							<span class="inline-flex items-center gap-1 rounded-full bg-accent-100 dark:bg-accent-900/40 px-2.5 py-1 text-xs font-medium text-accent-700 dark:text-accent-300">
+								@iconSparkle("h-3 w-3")
+								{ aiActionLabel(ctx, entry.EventType) }
+							</span>
+						}
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ timelineEvent(entry infra.TimelineEntry, isLast bool) {
+	<div class="lmn-timeline-event">
+		<div class="lmn-timeline-rail">
+			<div class={ timelineIconClass(entry) }>
+				if isAIAction(entry) {
+					@iconSparkle("h-4 w-4")
+				} else if entry.EventType == "outbound_message" {
+					@iconSend("h-4 w-4")
+				} else if entry.ActorKind == "human" {
+					@iconChatBubble("h-4 w-4")
+				} else {
+					@iconGear("h-4 w-4")
+				}
+			</div>
+			if !isLast {
+				<div class="lmn-timeline-connector"></div>
+			}
+		</div>
+		<div class="lmn-timeline-body">
+			<div class="lmn-timeline-header">
+				<div class="flex items-center gap-2">
+					if isAIAction(entry) {
+						<span class="lmn-timeline-actor-ai">{ entry.ActorName }</span>
+						<span class="inline-flex items-center rounded-full bg-accent-100 dark:bg-accent-900/40 px-2 py-0.5 text-xs font-medium text-accent-700 dark:text-accent-300">
+							{ eventLabel(ctx, entry.EventType) }
+						</span>
+					} else {
+						<span class="lmn-timeline-actor">{ entry.ActorName }</span>
+						<span class="text-xs text-stone-500 dark:text-stone-400">{ eventLabel(ctx, entry.EventType) }</span>
+					}
+				</div>
+				<span class="lmn-timeline-time">{ formatDateTime(entry) }</span>
+			</div>
+			if isAIAction(entry) {
+				<div class="lmn-timeline-card-ai">
+					<p class="lmn-timeline-content">{ entry.Content }</p>
+					if entry.DraftStatus == "pending" {
+						<div class="mt-3 pt-3 border-t border-accent-200 dark:border-accent-800">
+							<span class="lmn-badge lmn-badge-warning">{ i18n.T(ctx, "cases.draft.pending") }</span>
+						</div>
+					}
+					if entry.DraftStatus == "sent" {
+						<div class="mt-3 pt-3 border-t border-accent-200 dark:border-accent-800">
+							<span class="inline-flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+								@iconCheckmark("h-4 w-4")
+								{ i18n.T(ctx, "cases.draft.sent") }
+							</span>
+						</div>
+					}
+				</div>
+			} else {
+				<div class="lmn-timeline-card">
+					<p class="lmn-timeline-content">{ entry.Content }</p>
+				</div>
+			}
+		</div>
+	</div>
 }

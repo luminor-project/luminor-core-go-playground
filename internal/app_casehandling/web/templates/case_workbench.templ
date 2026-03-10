@@ -1,0 +1,89 @@
+package templates
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+func selectedCaseID(selected *infra.CaseDashboardRow) string {
+	if selected == nil {
+		return ""
+	}
+	return selected.WorkItemID
+}
+
+templ CaseWorkbench(cases []infra.CaseDashboardRow, selected *infra.CaseDashboardRow) {
+	@layouts.AppShell(i18n.T(ctx, "cases.pageTitle")) {
+		<div class="-my-10 -mx-4 sm:-mx-6 lg:-mx-8 h-[calc(100vh-4rem)]" x-data={ fmt.Sprintf("{ selectedId: '%s' }", selectedCaseID(selected)) }>
+			if len(cases) == 0 {
+				<div class="p-8">
+					<p class="lmn-text-small">{ i18n.T(ctx, "cases.empty") }</p>
+				</div>
+			} else {
+				<div class="lmn-workbench-grid h-full">
+					<aside class="lmn-workbench-pane-list overflow-y-auto">
+						<ul class="lmn-ticket-list">
+							for _, c := range cases {
+								<li>
+									<button
+										type="button"
+										class="lmn-ticket-item w-full text-left"
+										data-case-id={ c.WorkItemID }
+										x-bind:class="selectedId === $el.dataset.caseId && 'lmn-ticket-item-selected'"
+										hx-get={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s/partial", c.WorkItemID)) }
+										hx-target="#case-detail-pane"
+										hx-push-url={ i18n.LocalizedPath(ctx, fmt.Sprintf("/cases/%s", c.WorkItemID)) }
+										@click="selectedId = $el.dataset.caseId"
+									>
+										<div class="flex items-start justify-between gap-2">
+											<div class="min-w-0 flex-1">
+												<div class="flex items-center gap-2 mb-1">
+													<span class={ statusDotClass(c.Status) }></span>
+													<span class="text-xs font-medium text-stone-500 dark:text-stone-400">{ shortID(c.WorkItemID) }</span>
+												</div>
+												<h3 class="lmn-ticket-title truncate">{ c.SubjectName }</h3>
+												if c.SubjectDetail != "" || c.PartyName != "" {
+													<p class="lmn-ticket-meta mt-1">
+														if c.SubjectDetail != "" {
+															{ c.SubjectDetail }
+														}
+														if c.SubjectDetail != "" && c.PartyName != "" {
+															{ " — " }
+														}
+														if c.PartyName != "" {
+															{ c.PartyName }
+														}
+													</p>
+												}
+											</div>
+											<div class="flex flex-col items-end gap-1 shrink-0">
+												<span class="text-xs text-stone-400 dark:text-stone-500">{ formatUpdatedAt(c) }</span>
+												if countAIActions(c.Timeline) > 0 {
+													<span class="inline-flex items-center gap-1 text-xs text-accent-600 dark:text-accent-400">
+														@iconSparkle("h-3 w-3")
+														{ strconv.Itoa(countAIActions(c.Timeline)) }
+													</span>
+												}
+											</div>
+										</div>
+									</button>
+								</li>
+							}
+						</ul>
+					</aside>
+					<main id="case-detail-pane" class="lmn-workbench-pane-detail overflow-y-auto">
+						if selected != nil {
+							@CaseDetailPane(*selected)
+						} else {
+							@CaseDetailEmpty()
+						}
+					</main>
+				</div>
+			}
+		</div>
+	}
+}

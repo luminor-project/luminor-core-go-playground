@@ -134,6 +134,70 @@
     @apply border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-900/30;
 }
 
+.lmn-timeline-event {
+    @apply flex gap-4;
+}
+
+.lmn-timeline-rail {
+    @apply flex flex-col items-center;
+}
+
+.lmn-timeline-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full;
+}
+
+.lmn-timeline-icon-human {
+    @apply bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400;
+}
+
+.lmn-timeline-icon-ai {
+    @apply bg-accent-100 dark:bg-accent-900/40 text-accent-600 dark:text-accent-400;
+}
+
+.lmn-timeline-icon-system {
+    @apply bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400;
+}
+
+.lmn-timeline-icon-outbound {
+    @apply bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400;
+}
+
+.lmn-timeline-connector {
+    @apply w-px flex-1 bg-stone-200 dark:bg-stone-700;
+}
+
+.lmn-timeline-body {
+    @apply flex-1 pb-6;
+}
+
+.lmn-timeline-header {
+    @apply flex items-center justify-between gap-2 mb-1;
+}
+
+.lmn-timeline-actor {
+    @apply text-sm font-medium text-stone-900 dark:text-stone-100;
+}
+
+.lmn-timeline-actor-ai {
+    @apply text-sm font-medium text-accent-700 dark:text-accent-300;
+}
+
+.lmn-timeline-time {
+    @apply text-xs text-stone-500 dark:text-stone-400;
+}
+
+.lmn-timeline-card {
+    @apply rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/50 p-4;
+}
+
+.lmn-timeline-card-ai {
+    @apply rounded-lg border border-accent-200 dark:border-accent-800 bg-accent-50 dark:bg-accent-900/20 p-4;
+}
+
+.lmn-timeline-content {
+    @apply text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap;
+}
+
 .lmn-action-tray {
     @apply p-5 border-t border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/70 grid gap-3 md:grid-cols-[1fr_auto];
 }
