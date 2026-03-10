@@ -5,8 +5,8 @@ import (
 )
 
 // RegisterRoutes registers the case handling HTTP routes.
-func RegisterRoutes(mux *http.ServeMux, dashboard dashboardReader, cases caseUseCases, notes notesReader) {
-	h := NewHandler(dashboard, cases, notes)
+func RegisterRoutes(mux *http.ServeMux, dashboard dashboardReader, workitems workitemCommands, notes notesReader) {
+	h := NewHandler(dashboard, workitems, notes)
 
 	mux.HandleFunc("GET /cases", h.ShowCaseWorkbench)
 	mux.HandleFunc("GET /cases/{id}", h.ShowCaseWorkbench)

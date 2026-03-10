@@ -11,6 +11,7 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web/templates"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
+	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
 )
 
 type dashboardReader interface {
@@ -18,11 +19,11 @@ type dashboardReader interface {
 	FindByID(ctx context.Context, id string) (infra.CaseDashboardRow, error)
 }
 
-type caseUseCases interface {
-	ConfirmAndSend(ctx context.Context, workItemID, operatorPartyID, body string) error
-	AddNote(ctx context.Context, workItemID string, entryIndex int, authorID, body string) (string, error)
-	EditNote(ctx context.Context, workItemID, noteID, body string) error
-	DeleteNote(ctx context.Context, workItemID, noteID string) error
+type workitemCommands interface {
+	ConfirmOutboundMessage(ctx context.Context, workItemID string, dto workitemfacade.ConfirmOutboundMessageDTO) error
+	AddNote(ctx context.Context, workItemID string, dto workitemfacade.AddNoteDTO) (string, error)
+	EditNote(ctx context.Context, workItemID string, dto workitemfacade.EditNoteDTO) error
+	DeleteNote(ctx context.Context, workItemID string, dto workitemfacade.DeleteNoteDTO) error
 }
 
 type notesReader interface {
@@ -32,15 +33,15 @@ type notesReader interface {
 // Handler handles HTTP requests for the case handling UI.
 type Handler struct {
 	dashboard dashboardReader
-	cases     caseUseCases
+	workitems workitemCommands
 	notes     notesReader
 }
 
 // NewHandler creates a new case handling HTTP handler.
-func NewHandler(dashboard dashboardReader, cases caseUseCases, notes notesReader) *Handler {
+func NewHandler(dashboard dashboardReader, workitems workitemCommands, notes notesReader) *Handler {
 	return &Handler{
 		dashboard: dashboard,
-		cases:     cases,
+		workitems: workitems,
 		notes:     notes,
 	}
 }
@@ -109,7 +110,10 @@ func (h *Handler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 	// Use a hardcoded operator for V1 demo
 	operatorPartyID := "party-sarah"
 
-	if err := h.cases.ConfirmAndSend(r.Context(), id, operatorPartyID, body); err != nil {
+	if err := h.workitems.ConfirmOutboundMessage(r.Context(), id, workitemfacade.ConfirmOutboundMessageDTO{
+		ConfirmedByPartyID: operatorPartyID,
+		Body:               body,
+	}); err != nil {
 		slog.Error("confirm and send failed", "id", id, "error", err)
 		http.Error(w, "failed to confirm", http.StatusInternalServerError)
 		return
@@ -162,7 +166,11 @@ func (h *Handler) HandleAddNote(w http.ResponseWriter, r *http.Request) {
 	// Hardcoded operator for V1 demo
 	authorID := "party-sarah"
 
-	_, err = h.cases.AddNote(r.Context(), id, entryIndex, authorID, body)
+	_, err = h.workitems.AddNote(r.Context(), id, workitemfacade.AddNoteDTO{
+		EntryIndex: entryIndex,
+		AuthorID:   authorID,
+		Body:       body,
+	})
 	if err != nil {
 		slog.Error("add note failed", "id", id, "entry_index", entryIndex, "error", err)
 		http.Error(w, "failed to add note", http.StatusInternalServerError)
@@ -202,7 +210,10 @@ func (h *Handler) HandleEditNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.cases.EditNote(r.Context(), id, noteID, body); err != nil {
+	if err := h.workitems.EditNote(r.Context(), id, workitemfacade.EditNoteDTO{
+		NoteID: noteID,
+		Body:   body,
+	}); err != nil {
 		slog.Error("edit note failed", "id", id, "note_id", noteID, "error", err)
 		http.Error(w, "failed to edit note", http.StatusInternalServerError)
 		return
@@ -230,7 +241,9 @@ func (h *Handler) HandleDeleteNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.cases.DeleteNote(r.Context(), id, noteID); err != nil {
+	if err := h.workitems.DeleteNote(r.Context(), id, workitemfacade.DeleteNoteDTO{
+		NoteID: noteID,
+	}); err != nil {
 		slog.Error("delete note failed", "id", id, "note_id", noteID, "error", err)
 		http.Error(w, "failed to delete note", http.StatusInternalServerError)
 		return

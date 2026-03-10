@@ -56,6 +56,31 @@ type accountReader interface {
 Interfaces are defined where they are consumed, not in the provider package.
 The provider may expose concrete facade implementations for wiring, but consumers collaborate through their own narrow interfaces.
 
+### Facade Purity Principle
+
+A facade method must justify its existence by one of two criteria:
+
+1. **Cross-vertical public API** — The method is called by another vertical (or by a composition root like `cmd/server` or `cmd/seed`).
+2. **Multi-vertical orchestration** — The method coordinates calls across two or more verticals or infrastructure ports (e.g., workitem + agent workload + subject lookup).
+
+A method that simply delegates to a single dependency **does not belong on the facade**. If the only caller is the vertical's own handler, the handler should consume the dependency's facade directly via its own narrow interface.
+
+**Example: app_casehandling**
+
+`HandleInboundInquiry` orchestrates workitem intake + agent lookup + agent draft + two assistant action recordings across three dependencies. This is genuine multi-vertical orchestration — it belongs on the facade.
+
+`ConfirmOutboundMessage`, `AddNote`, `EditNote`, `DeleteNote` — each of these would only delegate to the workitem facade with no additional logic. They do not belong on the app_casehandling facade. The handler consumes the workitem facade directly:
+
+```go
+// Handler uses workitem facade directly for single-vertical operations
+type workitemCommands interface {
+    ConfirmOutboundMessage(ctx context.Context, workItemID string, dto workitemfacade.ConfirmOutboundMessageDTO) error
+    AddNote(ctx context.Context, workItemID string, dto workitemfacade.AddNoteDTO) (string, error)
+}
+```
+
+This keeps facades lean, avoids pure-delegation bloat, and makes it immediately clear which methods involve genuine orchestration.
+
 ## Event Bus
 
 A synchronous in-process event bus in `internal/platform/eventbus/` replaces Symfony's EventDispatcher. Events are plain structs defined in each vertical's `facade/events.go`. Subscribers are registered during wiring in `cmd/server/main.go`.
@@ -185,9 +210,9 @@ Cross-vertical coupling comes in two forms. Understanding the distinction is key
 When `app_casehandling` sends a command to the workitem vertical, the coupling is purely structural:
 
 ```go
-// app_casehandling defines its own narrow interface
-type workitemUseCases interface {
-    IntakeInboundMessage(ctx context.Context, dto workitemfacade.IntakeInboundMessageDTO) (string, error)
+// app_casehandling handler defines its own narrow interface
+type workitemCommands interface {
+    ConfirmOutboundMessage(ctx context.Context, workItemID string, dto workitemfacade.ConfirmOutboundMessageDTO) error
     AddNote(ctx context.Context, workItemID string, dto workitemfacade.AddNoteDTO) (string, error)
 }
 ```

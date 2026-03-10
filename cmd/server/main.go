@@ -43,13 +43,11 @@ import (
 	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
 
 	// App Casehandling vertical
-	casefacade "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/facade"
 	caseinfra "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	casesub "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/subscriber"
 	caseweb "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web"
 
 	// Platform
-	"github.com/luminor-project/luminor-core-go-playground/internal/platform/agentworkload"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	appCSRF "github.com/luminor-project/luminor-core-go-playground/internal/platform/csrf"
@@ -135,7 +133,7 @@ func main() {
 	ragweb.RegisterRoutes(mux, rFacade)
 
 	// ── Wire UC-01 Casehandling (event store, workitem, projections, routes)
-	wireCasehandling(cfg, db, bus, mux)
+	wireCasehandling(db, bus, mux)
 
 	// ── Compose Middleware Stack ────────────────────────────────────────
 	var handler http.Handler = mux
@@ -222,25 +220,16 @@ func (a *ollamaChatAdapter) Chat(ctx context.Context, model string, messages []r
 	return a.client.Chat(ctx, model, ollamaMessages)
 }
 
-// wireCasehandling builds the UC-01 verticals: event store, agent workload,
-// party/subject facades, workitem, casehandling, projection subscribers, and routes.
-func wireCasehandling(cfg config.Config, db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux) {
+// wireCasehandling builds the UC-01 verticals: event store,
+// party/subject facades, workitem, projection subscribers, and routes.
+func wireCasehandling(db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux) {
 	evStore := eventstore.NewPostgresStore(db)
-
-	var agentPort agentworkload.Port
-	switch cfg.AgentWorkloadMode {
-	case "fake":
-		agentPort = agentworkload.NewFakeAdapter()
-	case "live":
-		agentPort = agentworkload.NewLiveAdapter()
-	}
 
 	partyFac := partyfacade.NewDemoPartyFacade()
 	subjectFac := subjectfacade.NewDemoSubjectFacade()
 	wiFacade := workitemfacade.New(evStore, bus)
 	dashboardStore := caseinfra.NewDashboardStore(db)
-	cFacade := casefacade.New(wiFacade, agentPort, subjectFac)
 
 	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
-	caseweb.RegisterRoutes(mux, dashboardStore, cFacade, dashboardStore)
+	caseweb.RegisterRoutes(mux, dashboardStore, wiFacade, dashboardStore)
 }

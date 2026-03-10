@@ -13,10 +13,6 @@ import (
 type workitemUseCases interface {
 	IntakeInboundMessage(ctx context.Context, dto workitemfacade.IntakeInboundMessageDTO) (string, error)
 	RecordAssistantAction(ctx context.Context, workItemID string, dto workitemfacade.RecordAssistantActionDTO) error
-	ConfirmOutboundMessage(ctx context.Context, workItemID string, dto workitemfacade.ConfirmOutboundMessageDTO) error
-	AddNote(ctx context.Context, workItemID string, dto workitemfacade.AddNoteDTO) (string, error)
-	EditNote(ctx context.Context, workItemID string, dto workitemfacade.EditNoteDTO) error
-	DeleteNote(ctx context.Context, workItemID string, dto workitemfacade.DeleteNoteDTO) error
 }
 
 type subjectLookup interface {
@@ -26,10 +22,6 @@ type subjectLookup interface {
 // Compile-time interface assertion.
 var _ interface {
 	HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (string, error)
-	ConfirmAndSend(ctx context.Context, workItemID, operatorPartyID, body string) error
-	AddNote(ctx context.Context, workItemID string, entryIndex int, authorID, body string) (string, error)
-	EditNote(ctx context.Context, workItemID, noteID, body string) error
-	DeleteNote(ctx context.Context, workItemID, noteID string) error
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -124,36 +116,4 @@ func (f *facadeImpl) HandleInboundInquiry(ctx context.Context, dto InquiryDTO) (
 
 	slog.Info("inbound inquiry handled", "work_item_id", workItemID)
 	return workItemID, nil
-}
-
-// ConfirmAndSend confirms and sends the draft outbound message.
-func (f *facadeImpl) ConfirmAndSend(ctx context.Context, workItemID, operatorPartyID, body string) error {
-	return f.workitems.ConfirmOutboundMessage(ctx, workItemID, workitemfacade.ConfirmOutboundMessageDTO{
-		ConfirmedByPartyID: operatorPartyID,
-		Body:               body,
-	})
-}
-
-// AddNote adds a note to a timeline entry.
-func (f *facadeImpl) AddNote(ctx context.Context, workItemID string, entryIndex int, authorID, body string) (string, error) {
-	return f.workitems.AddNote(ctx, workItemID, workitemfacade.AddNoteDTO{
-		EntryIndex: entryIndex,
-		AuthorID:   authorID,
-		Body:       body,
-	})
-}
-
-// EditNote edits an existing note.
-func (f *facadeImpl) EditNote(ctx context.Context, workItemID, noteID, body string) error {
-	return f.workitems.EditNote(ctx, workItemID, workitemfacade.EditNoteDTO{
-		NoteID: noteID,
-		Body:   body,
-	})
-}
-
-// DeleteNote soft-deletes a note.
-func (f *facadeImpl) DeleteNote(ctx context.Context, workItemID, noteID string) error {
-	return f.workitems.DeleteNote(ctx, workItemID, workitemfacade.DeleteNoteDTO{
-		NoteID: noteID,
-	})
 }

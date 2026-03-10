@@ -64,7 +64,7 @@ func main() {
 	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
 
 	// Seed golden path (resolved case)
-	if err := testharness.SeedGoldenPath(ctx, cFacade); err != nil {
+	if err := testharness.SeedGoldenPath(ctx, cFacade, wiFacade); err != nil {
 		slog.Error("golden path seed failed", "error", err)
 		os.Exit(1)
 	}
