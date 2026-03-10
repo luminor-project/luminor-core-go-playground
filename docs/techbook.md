@@ -41,9 +41,13 @@ SQL-based migrations in `migrations/business/` and `migrations/rag/` directories
 
 Twelve-factor configuration via environment variables. Config struct with `env` struct tags.
 
+### Event Store: Custom PostgreSQL-backed
+
+Append-only event store in `internal/platform/eventstore/`. Stores events as JSONB payloads with stream ID and sequential version numbers. Provides optimistic concurrency via unique constraint on `(stream_id, stream_version)`. Used by the workitem vertical for event-sourced persistence. See archbook for the full pattern.
+
 ### Event Bus: Custom synchronous
 
-~40 lines of Go using generics. Type-safe event publishing and subscription.
+~40 lines of Go using generics. Type-safe event publishing and subscription. Used for both CRUD-based cross-vertical events (e.g., `AccountCreatedEvent`) and event-sourced projection pipelines (e.g., workitem events → case dashboard read model).
 
 ### Background Jobs: Outbox worker (current) + queue evolution (future)
 
