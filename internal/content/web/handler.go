@@ -29,3 +29,8 @@ func (h *Handler) ShowAbout(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ShowLivingStyleguide(w http.ResponseWriter, r *http.Request) {
 	render.Page(w, r, templates.LivingStyleguide())
 }
+
+// ShowStyleguideWorkbench renders the workbench pattern reference page.
+func (h *Handler) ShowStyleguideWorkbench(w http.ResponseWriter, r *http.Request) {
+	render.Page(w, r, templates.StyleguideWorkbench())
+}

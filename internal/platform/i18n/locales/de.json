@@ -11,6 +11,8 @@
   "footer.tagline": "Designsystem-zentrierte Produktbasis fuer langlebige Webanwendungen.",
   "footer.copyright": "© 2025-2026 Luminor. Alle Rechte vorbehalten.",
   "styleguide.title": "Lebender Styleguide",
+  "styleguide.workbench.title": "Workbench-Pattern",
+  "styleguide.workbench.intro": "Die 2-bis-3-Spalten-Workbench ist das primaere Anwendungs-UI-Pattern fuer die Verwaltung von Arbeitselementen, Faellen, Tickets oder beliebigen Entitaeten mit einem Listen-Detail-Kontext-Workflow. Sie bietet eine persistente Listenansicht, einen austauschbaren Detailbereich und eine optionale dritte Spalte fuer kontextbezogene Inhalte wie Notizen.",
   "error.invalidForm": "Ungueltiges Formular.",
   "error.internal": "Interner Fehler.",
   "error.csrfInvalid": "Ungueltiges CSRF-Token.",

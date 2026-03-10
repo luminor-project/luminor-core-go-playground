@@ -11,6 +11,8 @@
   "footer.tagline": "Base produit orientee systeme de design pour des applications web durables.",
   "footer.copyright": "© 2025-2026 Luminor. Tous droits reserves.",
   "styleguide.title": "Guide de style vivant",
+  "styleguide.workbench.title": "Pattern Workbench",
+  "styleguide.workbench.intro": "Le workbench 2 a 3 panneaux est le pattern d'interface principal pour la gestion d'elements de travail, de dossiers, de tickets ou de toute entite avec un flux liste-detail-contexte. Il offre un panneau de liste persistant, un panneau de detail interchangeable et un troisieme panneau optionnel pour le contenu contextuel comme les notes.",
   "error.invalidForm": "Soumission de formulaire invalide.",
   "error.internal": "Erreur interne.",
   "error.csrfInvalid": "Jeton CSRF invalide.",

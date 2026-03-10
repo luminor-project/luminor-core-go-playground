@@ -11,6 +11,8 @@
   "footer.tagline": "Design-system-first product foundation for durable web applications.",
   "footer.copyright": "© 2025-2026 Luminor. All rights reserved.",
   "styleguide.title": "Living Styleguide",
+  "styleguide.workbench.title": "Workbench Pattern",
+  "styleguide.workbench.intro": "The 2-to-3-pane workbench is the primary application UI pattern for managing work items, cases, tickets, or any entity with a list-detail-context workflow. It features a persistent list pane, a swappable detail pane, and an optional third pane for contextual content like notes.",
   "error.invalidForm": "Invalid form submission.",
   "error.internal": "Internal error.",
   "error.csrfInvalid": "CSRF token invalid.",

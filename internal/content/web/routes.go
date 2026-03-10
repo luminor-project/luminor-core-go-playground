@@ -10,5 +10,6 @@ func RegisterRoutes(mux *http.ServeMux, enableLivingStyleguide bool) {
 	mux.HandleFunc("GET /about", h.ShowAbout)
 	if enableLivingStyleguide {
 		mux.HandleFunc("GET /living-styleguide", h.ShowLivingStyleguide)
+		mux.HandleFunc("GET /living-styleguide/workbench", h.ShowStyleguideWorkbench)
 	}
 }
