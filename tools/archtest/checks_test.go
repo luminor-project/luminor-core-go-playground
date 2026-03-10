@@ -66,7 +66,7 @@ func Use(c orgfacade.Client) error { return c.Ping() }
 	}
 }
 
-func TestTypeAwareChecker_AllowsAllowlistedValueTypes(t *testing.T) {
+func TestTypeAwareChecker_AutoDiscoversFacadeValueTypes(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/archtest\n\ngo 1.26\n")
 	writeFile(t, root, "internal/organization/facade/events.go", `package facade
@@ -84,10 +84,18 @@ func Handle(e orgfacade.ActiveOrgChangedEvent) string { return e.OrganizationID 
 		sharedPackages:          []string{"common", "shared", "platform"},
 		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
 		allowedCrossVerticalPkg: []string{"facade"},
-		allowedCrossSymbols: map[string]struct{}{
-			"example.com/archtest/internal/organization/facade.ActiveOrgChangedEvent": {},
-		},
 	}
+	// Auto-discover instead of manual allowlist
+	symbols, err := discoverFacadeValueSymbols(p)
+	if err != nil {
+		t.Fatalf("discovery failed: %v", err)
+	}
+	p.allowedCrossSymbols = symbols
+
+	if _, ok := symbols["example.com/archtest/internal/organization/facade.ActiveOrgChangedEvent"]; !ok {
+		t.Fatal("expected auto-discovered symbol ActiveOrgChangedEvent")
+	}
+
 	violations, err := checkTypeBoundaries(p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,9 +105,46 @@ func Handle(e orgfacade.ActiveOrgChangedEvent) string { return e.OrganizationID 
 	}
 }
 
+func TestAutoDiscovery_ExcludesFunctions(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/archtest\n\ngo 1.26\n")
+	writeFile(t, root, "internal/organization/facade/impl.go", `package facade
+type MyDTO struct { Name string }
+func New() *MyDTO { return &MyDTO{} }
+`)
+
+	p := policy{
+		rootDir:                 root,
+		modulePath:              "example.com/archtest",
+		verticals:               []string{"account", "organization"},
+		sharedPackages:          []string{"common", "shared", "platform"},
+		forbiddenCrossSubpkgs:   []string{"domain", "infra", "web", "subscriber", "testharness"},
+		allowedCrossVerticalPkg: []string{"facade"},
+	}
+	symbols, err := discoverFacadeValueSymbols(p)
+	if err != nil {
+		t.Fatalf("discovery failed: %v", err)
+	}
+
+	if _, ok := symbols["example.com/archtest/internal/organization/facade.MyDTO"]; !ok {
+		t.Fatal("expected MyDTO to be discovered")
+	}
+	if _, ok := symbols["example.com/archtest/internal/organization/facade.New"]; ok {
+		t.Fatal("expected New (function) to be excluded from discovery")
+	}
+}
+
 func TestCurrentRepoPolicyHasNoViolations(t *testing.T) {
 	p := defaultPolicy()
 	p.rootDir = filepath.Join("..", "..")
+
+	// Auto-discover facade value symbols
+	symbols, err := discoverFacadeValueSymbols(p)
+	if err != nil {
+		t.Fatalf("discovery failed: %v", err)
+	}
+	p.allowedCrossSymbols = symbols
+
 	importViolations, err := checkImportBoundaries(p)
 	if err != nil {
 		t.Fatalf("unexpected import-check error: %v", err)

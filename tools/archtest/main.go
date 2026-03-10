@@ -7,14 +7,23 @@ import (
 )
 
 func main() {
-	policy := defaultPolicy()
-	importViolations, err := checkImportBoundaries(policy)
+	p := defaultPolicy()
+
+	// Auto-discover allowed value symbols from facade packages.
+	symbols, err := discoverFacadeValueSymbols(p)
+	if err != nil {
+		fmt.Printf("archtest facade discovery failed: %v\n", err)
+		os.Exit(1)
+	}
+	p.allowedCrossSymbols = symbols
+
+	importViolations, err := checkImportBoundaries(p)
 	if err != nil {
 		fmt.Printf("archtest import analysis failed: %v\n", err)
 		os.Exit(1)
 	}
 
-	typeViolations, err := checkTypeBoundaries(policy)
+	typeViolations, err := checkTypeBoundaries(p)
 	if err != nil {
 		fmt.Printf("archtest type analysis failed: %v\n", err)
 		os.Exit(1)

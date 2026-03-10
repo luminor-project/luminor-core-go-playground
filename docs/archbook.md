@@ -268,7 +268,27 @@ The structural coupling on the command path is minimized by design: consumer-def
 
 This dual nature — low structural coupling with meaningful semantic coupling — is the architectural cost of event-driven projections. It is paid once per event type and amortized across every consumer that projects from the same stream.
 
-## Archtest Modes
+## Archtest
+
+The architecture test (`tools/archtest/`) enforces boundary rules at two levels:
+
+1. **Import boundaries** — Cross-vertical imports must go through `facade/` packages only. Importing `domain/`, `infra/`, `web/`, `subscriber/`, or `testharness/` from another vertical is a violation.
+2. **Type boundaries** — Cross-vertical symbol usage must be value-oriented (types, constants, sentinel errors). Concrete functions (constructors) from foreign facades are blocked — they belong in composition roots (`cmd/`), which the archtest does not check.
+
+### Auto-Discovery
+
+The allowlist of cross-vertical symbols is **auto-discovered at runtime** by scanning all facade packages with `go/packages`. No manual allowlist is needed. The facade package _is_ the allowlist:
+
+- Exported **types** (structs, type aliases) → auto-allowed
+- Exported **constants** → auto-allowed
+- Exported **variables** with `error` type (sentinel errors) → auto-allowed
+- Exported **functions** (constructors) → blocked
+
+For type aliases (e.g., `type Status = domain.Status`), the underlying domain type is also discovered so that Go's transparent alias resolution does not cause false positives.
+
+This means adding a new DTO, event type, or constant to any `facade/` package automatically makes it available cross-vertically. No policy file update required.
+
+### Modes
 
 - **Enforce mode (default):** `go run ./tools/archtest` fails on violations.
 - **Report-only mode:** set `ARCHTEST_REPORT_ONLY=1` to print violations without failing (useful during rollout/cleanup).
