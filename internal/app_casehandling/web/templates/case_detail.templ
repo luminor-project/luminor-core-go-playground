@@ -1,0 +1,124 @@
+package templates
+
+import (
+	"fmt"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+)
+
+func threadItemClass(actorKind string) string {
+	switch actorKind {
+	case "human":
+		return "lmn-thread-item lmn-thread-item-tenant"
+	case "assistant":
+		return "lmn-thread-item lmn-thread-item-ai"
+	default:
+		return "lmn-thread-item lmn-thread-item-system"
+	}
+}
+
+func threadMetaClass(actorKind string) string {
+	if actorKind == "assistant" {
+		return "lmn-thread-meta lmn-thread-meta-ai"
+	}
+	return "lmn-thread-meta"
+}
+
+func eventLabel(eventType string) string {
+	switch eventType {
+	case "inbound_message":
+		return "Eingehende Nachricht"
+	case "assistant_action_lookup":
+		return "KI-Aktion · Recherche"
+	case "assistant_action_draft":
+		return "KI-Aktion · Entwurf"
+	case "outbound_message":
+		return "Ausgehende Nachricht"
+	default:
+		return eventType
+	}
+}
+
+func actorIcon(actorKind string) string {
+	switch actorKind {
+	case "human":
+		return "👤"
+	case "assistant":
+		return "🤖"
+	default:
+		return "⚙️"
+	}
+}
+
+templ CaseDetail(c infra.CaseDashboardRow) {
+	@layouts.AppShell(fmt.Sprintf("Fall — %s", c.SubjectName)) {
+		<div class="max-w-4xl mx-auto py-8">
+			<div class="mb-6">
+				<a href="/cases" class="lmn-link-default text-sm">&larr; Zurück zur Übersicht</a>
+			</div>
+
+			<div class="lmn-card">
+				<div class="lmn-card-title">
+					<div class="lmn-card-title-content">
+						<div class="flex flex-wrap items-center gap-3">
+							<h1 class="lmn-card-title-text">{ c.SubjectName }</h1>
+							<span class={ statusBadgeClass(c.Status) }>{ statusLabel(c.Status) }</span>
+						</div>
+						if c.SubjectDetail != "" {
+							<p class="lmn-card-subtitle">{ c.SubjectDetail }</p>
+						}
+					</div>
+				</div>
+				<div class="lmn-card-content">
+					if c.PartyName != "" {
+						<p class="lmn-text-small mb-4">
+							Absender: <span class="font-medium">{ c.PartyName }</span>
+						</p>
+					}
+
+					<!-- Timeline -->
+					<div class="lmn-workbench-thread lmn-thread">
+						for _, entry := range c.Timeline {
+							<div class={ threadItemClass(entry.ActorKind) }>
+								<p class={ threadMetaClass(entry.ActorKind) }>
+									{ actorIcon(entry.ActorKind) } { entry.ActorName } · { eventLabel(entry.EventType) }
+								</p>
+								<p class="lmn-thread-copy">{ entry.Content }</p>
+								if entry.DraftStatus == "pending" {
+									<span class="lmn-badge lmn-badge-warning mt-2">Entwurf — Bestätigung ausstehend</span>
+								}
+							</div>
+						}
+					</div>
+
+					<!-- Confirm button for pending drafts -->
+					if c.Status == "pending_confirmation" {
+						<div class="lmn-action-tray mt-6">
+							<form action={ templ.SafeURL(fmt.Sprintf("/cases/%s/confirm", c.WorkItemID)) } method="post" class="w-full">
+								<textarea
+									name="body"
+									class="lmn-form-textarea w-full"
+									rows="4"
+									placeholder="Antwort bearbeiten oder bestätigen..."
+								>{ pendingDraftBody(c) }</textarea>
+								<div class="mt-3 flex justify-end">
+									<button type="submit" class="lmn-button-default">Bestätigen und Senden</button>
+								</div>
+							</form>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+func pendingDraftBody(c infra.CaseDashboardRow) string {
+	for i := len(c.Timeline) - 1; i >= 0; i-- {
+		if c.Timeline[i].DraftStatus == "pending" {
+			return c.Timeline[i].Content
+		}
+	}
+	return ""
+}

@@ -1,0 +1,72 @@
+package domain
+
+import "time"
+
+// Event type constants for the workitem aggregate.
+const (
+	EventWorkItemCreated         = "workitem.WorkItemCreated.v1"
+	EventPartyLinked             = "workitem.PartyLinkedToWorkItem.v1"
+	EventSubjectLinked           = "workitem.SubjectLinkedToWorkItem.v1"
+	EventInboundMessageRecorded  = "workitem.InboundMessageRecorded.v1"
+	EventAssistantActionRecorded = "workitem.AssistantActionRecorded.v1"
+	EventOutboundMessageRecorded = "workitem.OutboundMessageRecorded.v1"
+	EventWorkItemStatusChanged   = "workitem.WorkItemStatusChanged.v1"
+)
+
+// DomainEvent is what command methods return. Domain-local, zero platform imports.
+type DomainEvent struct {
+	EventType string
+	Payload   any
+}
+
+// WorkItemCreated is emitted when a new work item is created.
+type WorkItemCreated struct {
+	WorkItemID string    `json:"work_item_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// PartyLinkedToWorkItem is emitted when a party is linked to a work item.
+type PartyLinkedToWorkItem struct {
+	WorkItemID string `json:"work_item_id"`
+	PartyID    string `json:"party_id"`
+	Role       string `json:"role"` // "sender", "handler", "agent"
+}
+
+// SubjectLinkedToWorkItem is emitted when a subject is linked to a work item.
+type SubjectLinkedToWorkItem struct {
+	WorkItemID string `json:"work_item_id"`
+	SubjectID  string `json:"subject_id"`
+}
+
+// InboundMessageRecorded is emitted when an inbound message is recorded.
+type InboundMessageRecorded struct {
+	WorkItemID string    `json:"work_item_id"`
+	SenderID   string    `json:"sender_id"`
+	Body       string    `json:"body"`
+	RecordedAt time.Time `json:"recorded_at"`
+}
+
+// AssistantActionRecorded is emitted when an AI assistant performs an action.
+type AssistantActionRecorded struct {
+	WorkItemID  string    `json:"work_item_id"`
+	ActorID     string    `json:"actor_id"`
+	ActionKind  string    `json:"action_kind"` // "lookup", "draft"
+	Output      string    `json:"output"`
+	DraftStatus string    `json:"draft_status"` // "" for lookup, "pending" for draft
+	RecordedAt  time.Time `json:"recorded_at"`
+}
+
+// OutboundMessageRecorded is emitted when an outbound message is confirmed and sent.
+type OutboundMessageRecorded struct {
+	WorkItemID  string    `json:"work_item_id"`
+	ConfirmedBy string    `json:"confirmed_by"`
+	Body        string    `json:"body"`
+	RecordedAt  time.Time `json:"recorded_at"`
+}
+
+// WorkItemStatusChanged is emitted when the work item status changes.
+type WorkItemStatusChanged struct {
+	WorkItemID string `json:"work_item_id"`
+	OldStatus  string `json:"old_status"`
+	NewStatus  string `json:"new_status"`
+}

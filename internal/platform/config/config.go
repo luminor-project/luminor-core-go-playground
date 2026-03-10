@@ -18,6 +18,7 @@ type Config struct {
 	LocalInferenceURL string `env:"LOCAL_INFERENCE_URL" envDefault:"http://local-inference:11434"`
 	EmbedModel        string `env:"EMBED_MODEL" envDefault:"nomic-embed-text"`
 	ChatModel         string `env:"CHAT_MODEL" envDefault:"llama3.1:8b"`
+	AgentWorkloadMode string `env:"AGENT_WORKLOAD_MODE" envDefault:"fake"`
 }
 
 func (c Config) IsProduction() bool {
@@ -34,10 +35,15 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
 
+	if cfg.AgentWorkloadMode != "fake" && cfg.AgentWorkloadMode != "live" {
+		return Config{}, fmt.Errorf("invalid AGENT_WORKLOAD_MODE: %q (must be 'fake' or 'live')", cfg.AgentWorkloadMode)
+	}
+
 	slog.Info("config loaded",
 		"app_env", cfg.AppEnv,
 		"port", cfg.Port,
 		"base_url", cfg.BaseURL,
+		"agent_workload_mode", cfg.AgentWorkloadMode,
 	)
 
 	return cfg, nil

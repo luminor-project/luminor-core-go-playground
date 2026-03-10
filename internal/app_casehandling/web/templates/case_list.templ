@@ -1,0 +1,79 @@
+package templates
+
+import (
+	"fmt"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+)
+
+func statusBadgeClass(status string) string {
+	switch status {
+	case "new":
+		return "lmn-badge lmn-badge-info"
+	case "in_progress":
+		return "lmn-badge lmn-badge-warning"
+	case "pending_confirmation":
+		return "lmn-badge lmn-badge-warning"
+	case "resolved":
+		return "lmn-badge lmn-badge-success"
+	default:
+		return "lmn-badge lmn-badge-dark"
+	}
+}
+
+func statusLabel(status string) string {
+	switch status {
+	case "new":
+		return "Neu"
+	case "in_progress":
+		return "In Bearbeitung"
+	case "pending_confirmation":
+		return "Bestätigung ausstehend"
+	case "resolved":
+		return "Abgeschlossen"
+	default:
+		return status
+	}
+}
+
+templ CaseList(cases []infra.CaseDashboardRow) {
+	@layouts.AppShell("Fälle") {
+		<div class="max-w-4xl mx-auto py-8">
+			<h1 class="lmn-pagetitle">Fälle</h1>
+
+			if len(cases) == 0 {
+				<div class="lmn-card">
+					<div class="lmn-card-content">
+						<p class="lmn-text-small">Keine Fälle vorhanden.</p>
+					</div>
+				</div>
+			} else {
+				<div class="space-y-4">
+					for _, c := range cases {
+						<a href={ templ.SafeURL(fmt.Sprintf("/cases/%s", c.WorkItemID)) } class="block">
+							<div class="lmn-card lmn-card-hover">
+								<div class="lmn-card-content">
+									<div class="flex items-center justify-between">
+										<div>
+											<p class="font-medium text-stone-900 dark:text-stone-100">
+												{ c.SubjectName }
+												if c.SubjectDetail != "" {
+													<span class="lmn-text-small ml-1">— { c.SubjectDetail }</span>
+												}
+											</p>
+											if c.PartyName != "" {
+												<p class="lmn-text-small mt-1">Absender: { c.PartyName }</p>
+											}
+										</div>
+										<span class={ statusBadgeClass(c.Status) }>{ statusLabel(c.Status) }</span>
+									</div>
+								</div>
+							</div>
+						</a>
+					}
+				</div>
+			}
+		</div>
+	}
+}

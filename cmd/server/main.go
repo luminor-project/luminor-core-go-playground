@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	// Account vertical
 	accountdomain "github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
 	accountfacade "github.com/luminor-project/luminor-core-go-playground/internal/account/facade"
@@ -33,12 +35,27 @@ import (
 	raginfra "github.com/luminor-project/luminor-core-go-playground/internal/rag/infra"
 	ragweb "github.com/luminor-project/luminor-core-go-playground/internal/rag/web"
 
+	// Party & Subject verticals
+	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
+	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
+
+	// WorkItem vertical
+	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
+
+	// App Casehandling vertical
+	casefacade "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/facade"
+	caseinfra "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
+	casesub "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/subscriber"
+	caseweb "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web"
+
 	// Platform
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/agentworkload"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	appCSRF "github.com/luminor-project/luminor-core-go-playground/internal/platform/csrf"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventstore"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/flash"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/httplog"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
@@ -106,22 +123,19 @@ func main() {
 	rFacade := ragfacade.New(ragService, bus)
 
 	// ── Wire Event Subscribers ──────────────────────────────────────────
-	// Account created → create default organization
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)
-	// Active org changed → update account's active org
 	accountsub.RegisterOrgChangedSubscriber(bus, acctFacade)
 
 	// ── Build HTTP Routes ───────────────────────────────────────────────
 	mux := http.NewServeMux()
-
-	// Static file serving
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-
-	// Register vertical routes
 	contentweb.RegisterRoutes(mux, !cfg.IsProduction())
 	accountweb.RegisterRoutes(mux, acctFacade, sessionStore)
 	orgweb.RegisterRoutes(mux, orgService, oFacade, acctFacade, sessionStore)
 	ragweb.RegisterRoutes(mux, rFacade)
+
+	// ── Wire UC-01 Casehandling (event store, workitem, projections, routes)
+	wireCasehandling(cfg, db, bus, mux)
 
 	// ── Compose Middleware Stack ────────────────────────────────────────
 	var handler http.Handler = mux
@@ -206,4 +220,27 @@ func (a *ollamaChatAdapter) Chat(ctx context.Context, model string, messages []r
 		ollamaMessages[i] = ollama.Message{Role: m.Role, Content: m.Content}
 	}
 	return a.client.Chat(ctx, model, ollamaMessages)
+}
+
+// wireCasehandling builds the UC-01 verticals: event store, agent workload,
+// party/subject facades, workitem, casehandling, projection subscribers, and routes.
+func wireCasehandling(cfg config.Config, db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux) {
+	evStore := eventstore.NewPostgresStore(db)
+
+	var agentPort agentworkload.Port
+	switch cfg.AgentWorkloadMode {
+	case "fake":
+		agentPort = agentworkload.NewFakeAdapter()
+	case "live":
+		agentPort = agentworkload.NewLiveAdapter()
+	}
+
+	partyFac := partyfacade.NewDemoPartyFacade()
+	subjectFac := subjectfacade.NewDemoSubjectFacade()
+	wiFacade := workitemfacade.New(evStore, bus)
+	dashboardStore := caseinfra.NewDashboardStore(db)
+	cFacade := casefacade.New(wiFacade, agentPort, subjectFac)
+
+	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
+	caseweb.RegisterRoutes(mux, dashboardStore, cFacade)
 }
