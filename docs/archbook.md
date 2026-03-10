@@ -176,6 +176,58 @@ store.DeleteNoteOnTimeline(ctx, workItemID, noteID)  // sets deleted=true in JSO
 
 The event stream retains the full lifecycle: created → edited → deleted. The read model filters out deleted items for display. Nothing is ever physically removed from the event store.
 
+## Structural vs Semantic Coupling
+
+Cross-vertical coupling comes in two forms. Understanding the distinction is key to evaluating whether the architecture delivers on PIL-2 (Strong Vertical Isolation).
+
+### Command Path: Structural Coupling
+
+When `app_casehandling` sends a command to the workitem vertical, the coupling is purely structural:
+
+```go
+// app_casehandling defines its own narrow interface
+type workitemUseCases interface {
+    IntakeInboundMessage(ctx context.Context, dto workitemfacade.IntakeInboundMessageDTO) (string, error)
+    AddNote(ctx context.Context, workItemID string, dto workitemfacade.AddNoteDTO) (string, error)
+}
+```
+
+The consumer passes DTOs in and gets IDs or errors back. It never sees the WorkItem aggregate, `Apply()`, event streams, versions, or any internal structure. If the workitem vertical switched from event sourcing to CRUD tomorrow, the consumer's code would not change. This is genuinely low coupling — the consumer depends only on the shape of the DTO and the method signature.
+
+### Event Path: Semantic Coupling
+
+When `app_casehandling` projects workitem events into its read model, the coupling is semantic:
+
+```go
+// projection subscriber handles specific event types and reads their fields
+eventbus.Subscribe(bus, func(ctx context.Context, e workitemfacade.InboundMessageRecordedEvent) {
+    store.AppendTimeline(ctx, e.WorkItemID, TimelineEntry{
+        EventType:  "inbound_message",
+        Content:    e.Body,
+        ActorName:  lookupPartyName(e.SenderID),
+        RecordedAt: e.RecordedAt,
+    })
+})
+```
+
+The subscriber must understand the business meaning of each event: which fields exist, what they represent, how they map to the read model. The facade event types are the public contract — like an API schema. If an event's structure changes (field renamed, semantics altered), the projection breaks.
+
+### Why This Is Correct
+
+This is not a flaw — it is inherent to event-driven architecture and consistent with PIL-2:
+
+| Dimension           | Command path                         | Event path                                 |
+| ------------------- | ------------------------------------ | ------------------------------------------ |
+| Coupling type       | Structural (method signatures, DTOs) | Semantic (event contracts, field meanings) |
+| Consumer knowledge  | "I can ask for X"                    | "I understand what X means"                |
+| Change propagation  | Compile-time (interface mismatch)    | Compile-time (struct field mismatch)       |
+| Isolation mechanism | Consumer-defined interfaces          | Versioned event types (`.v1` suffix)       |
+| Provider freedom    | Full (can change internals)          | Constrained (event schema is public API)   |
+
+The structural coupling on the command path is minimized by design: consumer-defined interfaces, opaque DTOs, no shared state. The semantic coupling on the event path is managed through stable, versioned event contracts. Adding a new field to an event is additive (non-breaking). Changing or removing fields requires a new version (`v2`), and both versions can coexist during migration.
+
+This dual nature — low structural coupling with meaningful semantic coupling — is the architectural cost of event-driven projections. It is paid once per event type and amortized across every consumer that projects from the same stream.
+
 ## Archtest Modes
 
 - **Enforce mode (default):** `go run ./tools/archtest` fails on violations.
