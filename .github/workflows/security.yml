@@ -34,4 +34,12 @@ jobs:
         run: |
           export COMPOSE_BAKE=true
           docker compose up -d
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for app container to be ready..."
+          until docker compose exec -T app sh -c 'mise --version' 2>/dev/null; do
+            echo "App not ready yet, retrying in 5s..."
+            sleep 5
+          done
+          echo "App container is ready!"
       - run: mise run security
