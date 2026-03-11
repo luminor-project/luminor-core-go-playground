@@ -296,6 +296,17 @@ For type aliases (e.g., `type Status = domain.Status`), the underlying domain ty
 
 This means adding a new DTO, event type, or constant to any `facade/` package automatically makes it available cross-vertically. No policy file update required.
 
+### Structural Checks
+
+Beyond import and type boundaries, archtest enforces several structural invariants:
+
+- **Domain purity** — Domain packages must not import infrastructure (`internal/platform/`, `database/sql`, `net/http`, database drivers). Keeps domain logic as a pure state machine with zero infrastructure coupling.
+- **Event store immutability** — No UPDATE or DELETE SQL may appear in `internal/platform/eventstore/`. The event store is strictly append-only; mutations would violate the foundational invariant that the event stream is the source of truth.
+- **Vertical registry** — Every directory under `internal/` must be declared in the archtest policy as a vertical or shared package. A new undeclared directory fails the build immediately, preventing it from silently escaping all boundary enforcement.
+- **Subpackage convention** — Verticals may only contain recognized subpackages: `domain/`, `facade/`, `infra/`, `web/`, `subscriber/`, `testharness/`. Prevents structural drift where code ends up in packages that bypass the facade boundary.
+- **Consumer-defined interfaces** — Facade packages must not export interface types (interfaces belong at the consumer site). Facade-only verticals (`party`, `subject`) are exempt since the exported interface is their public contract.
+- **No direct time.Now()** — Business logic packages (`domain/`, `facade/`, `infra/`, `subscriber/`) must not reference `time.Now`. Time is injected via a `Clock` interface for testability. Uses AST analysis to catch import aliases (`import t "time"` → `t.Now()`) and function value references (`var f = time.Now`).
+
 ### Modes
 
 - **Enforce mode (default):** `go run ./tools/archtest` fails on violations.
@@ -350,6 +361,22 @@ Consumers use `workitemfacade.Status` and `workitemfacade.StatusNew`. The alias 
 ### Read-model exception
 
 Read-model structs (e.g., `CaseDashboardRow`, `TimelineEntry`) use plain `string` for denormalized fields like `Status` and `ActorKind`. These are projection-level values read from the database; the type safety lives at the event/command boundary where values are created. Projection subscribers convert typed event fields to strings when populating the read model: `string(e.NewStatus)`.
+
+## Clock Injection
+
+Business logic must never call `time.Now()` directly. Time is provided through a `Clock` interface:
+
+```go
+type Clock interface {
+    Now() time.Time
+}
+```
+
+Each domain package defines its own `Clock` interface (consumer-owned pattern). `internal/platform/clock/` provides `RealClock` (production) and `FixedClock` (tests). Entity constructors receive `time.Time` directly; domain services and aggregates receive a `Clock` via constructor injection.
+
+This enables deterministic tests — a stepping clock can verify that events within a single command share a timestamp and that timestamps across commands are causally ordered.
+
+The archtest enforces this rule via AST analysis of `domain/`, `facade/`, `infra/`, and `subscriber/` packages. It catches direct calls, aliased imports, and function value references.
 
 ## Error Handling
 

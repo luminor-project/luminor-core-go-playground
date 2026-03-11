@@ -401,7 +401,7 @@ func checkEventStoreImmutability(p policy) ([]string, error) {
 }
 
 func checkNoDirectTimeNow(p policy) ([]string, error) {
-	businessDirs := []string{"domain", "facade", "subscriber"}
+	businessDirs := []string{"domain", "facade", "infra", "subscriber"}
 	var violations []string
 	for _, vertical := range p.verticals {
 		for _, subpkg := range businessDirs {
@@ -419,21 +419,11 @@ func checkNoDirectTimeNow(p policy) ([]string, error) {
 				if strings.HasSuffix(path, "_test.go") {
 					return nil
 				}
-				content, err := os.ReadFile(path) //nolint:gosec // path is constructed from trusted rootDir, not user input
+				vs, err := checkFileForTimeNow(p.rootDir, path)
 				if err != nil {
 					return nil
 				}
-				for i, line := range strings.Split(string(content), "\n") {
-					trimmed := strings.TrimSpace(line)
-					if strings.HasPrefix(trimmed, "//") {
-						continue
-					}
-					if strings.Contains(line, "time.Now()") {
-						violations = append(violations, fmt.Sprintf(
-							"%s:%d calls time.Now() directly (inject a Clock instead)",
-							relPath(p.rootDir, path), i+1))
-					}
-				}
+				violations = append(violations, vs...)
 				return nil
 			})
 			if err != nil {
@@ -441,6 +431,54 @@ func checkNoDirectTimeNow(p policy) ([]string, error) {
 			}
 		}
 	}
+	return violations, nil
+}
+
+// checkFileForTimeNow uses AST analysis to detect any reference to time.Now,
+// regardless of import alias (e.g. import t "time" → t.Now()).
+func checkFileForTimeNow(rootDir, path string) ([]string, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the local name for the "time" import (usually "time", but could be aliased).
+	var timeAlias string
+	for _, imp := range f.Imports {
+		impPath := strings.Trim(imp.Path.Value, `"`)
+		if impPath != "time" {
+			continue
+		}
+		if imp.Name != nil {
+			timeAlias = imp.Name.Name
+		} else {
+			timeAlias = "time"
+		}
+		break
+	}
+	if timeAlias == "" {
+		return nil, nil // file doesn't import "time" at all
+	}
+
+	var violations []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := sel.X.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		if ident.Name == timeAlias && sel.Sel.Name == "Now" {
+			pos := fset.Position(sel.Pos())
+			violations = append(violations, fmt.Sprintf(
+				"%s:%d references time.Now (inject a Clock instead)",
+				relPath(rootDir, path), pos.Line))
+		}
+		return true
+	})
 	return violations, nil
 }
 
