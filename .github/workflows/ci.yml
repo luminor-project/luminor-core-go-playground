@@ -42,6 +42,4 @@ jobs:
           done
           echo "App container is ready!"
       - name: Run all checks
-        env:
-          GOFLAGS: -buildvcs=false
-        run: mise run all-checks
+        run: docker compose exec -e GOFLAGS=-buildvcs=false -T app sh -lc 'cd /app && mise run all-checks'

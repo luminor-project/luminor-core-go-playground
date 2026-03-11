@@ -41,9 +41,7 @@ jobs:
           done
           echo "App container is ready!"
       - name: Run unit tests
-        env:
-          GOFLAGS: -buildvcs=false
-        run: mise run tests
+        run: docker compose exec -e GOFLAGS=-buildvcs=false -T app sh -lc 'cd /app && mise run tests'
 
   integration:
     runs-on: ubuntu-latest
@@ -69,6 +67,4 @@ jobs:
           done
           echo "App container is ready!"
       - name: Run integration tests
-        env:
-          GOFLAGS: -buildvcs=false
-        run: mise run tests-integration
+        run: docker compose exec -e GOFLAGS=-buildvcs=false -T app sh -lc 'cd /app && mise run tests-integration'

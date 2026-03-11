@@ -43,6 +43,4 @@ jobs:
           done
           echo "App container is ready!"
       - name: Run security checks
-        env:
-          GOFLAGS: -buildvcs=false
-        run: mise run security
+        run: docker compose exec -e GOFLAGS=-buildvcs=false -T app sh -lc 'cd /app && mise run security'
