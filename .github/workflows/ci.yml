@@ -41,4 +41,7 @@ jobs:
             sleep 5
           done
           echo "App container is ready!"
-      - run: mise run all-checks
+      - name: Run all checks
+        env:
+          GOFLAGS: -buildvcs=false
+        run: mise run all-checks

@@ -40,7 +40,10 @@ jobs:
             sleep 5
           done
           echo "App container is ready!"
-      - run: mise run tests
+      - name: Run unit tests
+        env:
+          GOFLAGS: -buildvcs=false
+        run: mise run tests
 
   integration:
     runs-on: ubuntu-latest
@@ -65,4 +68,7 @@ jobs:
             sleep 5
           done
           echo "App container is ready!"
-      - run: mise run tests-integration
+      - name: Run integration tests
+        env:
+          GOFLAGS: -buildvcs=false
+        run: mise run tests-integration
