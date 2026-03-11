@@ -91,6 +91,9 @@ func TestCreateProperty_CallsSubjectFacade(t *testing.T) {
 	if subjectFac.lastDTO.Name != "Flussufer Apartments, Unit 12A" {
 		t.Errorf("expected name passed through, got %q", subjectFac.lastDTO.Name)
 	}
+	if subjectFac.lastDTO.SubjectKind != subjectfacade.SubjectKindDwelling {
+		t.Errorf("expected SubjectKindDwelling, got %q", subjectFac.lastDTO.SubjectKind)
+	}
 }
 
 func TestCreateTenant_CallsPartyFacadeWithTenantKind(t *testing.T) {

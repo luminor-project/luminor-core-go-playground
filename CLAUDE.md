@@ -58,6 +58,15 @@ Read the docs before making architectural decisions. Each book answers different
 - Entry points live in `cmd/` (server, migrate, seed-property-mgr-setup, worker)
 - Read the docs before making architectural decisions
 
+## Event Sourcing Requirement
+
+Business verticals listed in `eventSourcedVerticals` in `tools/archtest/policy.go` (currently: workitem, party, subject, rental) **must** use event sourcing + CQRS. This is enforced by archtest. Concretely:
+
+- **Write path**: Facade receives commands, delegates to domain aggregate, appends domain events to the event store (`platform/eventstore`), then publishes facade-level events via `eventbus`. Never write directly to projection tables from the facade.
+- **Read path**: Projection subscribers (`subscriber/` packages) listen for facade events and populate read-model tables via `UpsertProjection`. Queries read from these projection tables.
+- **Domain aggregate**: Must have `Apply()` for reconstitution, command methods returning `[]DomainEvent`, and a `DeserializeEvent()` function for replaying events from the store.
+- **Do NOT** implement these verticals as CRUD (direct SQL insert/update from facade). The archtest will catch missing eventstore imports and missing DeserializeEvent.
+
 ## Testing Conventions
 
 - Domain: pure unit tests with injected `clock.NewFixed()`

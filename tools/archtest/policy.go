@@ -11,6 +11,7 @@ type policy struct {
 	allowedCrossSymbols     map[string]struct{}
 	allowedVerticalSubpkgs  []string
 	facadeOnlyVerticals     []string // verticals that export interfaces (no concrete impl)
+	eventSourcedVerticals   []string // verticals that must use event sourcing + CQRS
 }
 
 func defaultPolicy() policy {
@@ -22,6 +23,7 @@ func defaultPolicy() policy {
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedVerticalSubpkgs:  []string{"domain", "facade", "infra", "web", "subscriber", "testharness"},
 		facadeOnlyVerticals:     []string{},
+		eventSourcedVerticals:   []string{"workitem", "party", "subject", "rental"},
 		// allowedCrossSymbols is populated at runtime by discoverFacadeValueSymbols.
 		// No manual allowlist needed — the facade package IS the allowlist.
 		allowedCrossSymbols: nil,

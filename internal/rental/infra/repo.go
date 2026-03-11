@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,13 +22,14 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) Create(ctx context.Context, rental domain.Rental) error {
+func (r *PostgresRepository) UpsertProjection(ctx context.Context, id, subjectID, tenantPartyID, orgID, createdByAccountID string, createdAt time.Time) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO rentals (id, subject_id, tenant_party_id, org_id, created_by_account_id, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		rental.ID, rental.SubjectID, rental.TenantPartyID, rental.OrgID, rental.CreatedByAccountID, rental.CreatedAt)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (id) DO UPDATE SET subject_id = $2, tenant_party_id = $3, org_id = $4, created_by_account_id = $5, created_at = $6`,
+		id, subjectID, tenantPartyID, orgID, createdByAccountID, createdAt)
 	if err != nil {
-		return fmt.Errorf("insert rental: %w", err)
+		return fmt.Errorf("upsert rental projection: %w", err)
 	}
 	return nil
 }
@@ -35,9 +37,9 @@ func (r *PostgresRepository) Create(ctx context.Context, rental domain.Rental) e
 func (r *PostgresRepository) FindByID(ctx context.Context, id string) (domain.Rental, error) {
 	var rental domain.Rental
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id, created_at
+		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id
 		 FROM rentals WHERE id = $1`, id).
-		Scan(&rental.ID, &rental.SubjectID, &rental.TenantPartyID, &rental.OrgID, &rental.CreatedByAccountID, &rental.CreatedAt)
+		Scan(&rental.ID, &rental.SubjectID, &rental.TenantPartyID, &rental.OrgID, &rental.CreatedByAccountID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Rental{}, domain.ErrRentalNotFound
@@ -49,7 +51,7 @@ func (r *PostgresRepository) FindByID(ctx context.Context, id string) (domain.Re
 
 func (r *PostgresRepository) FindBySubjectID(ctx context.Context, subjectID string) ([]domain.Rental, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id, created_at
+		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id
 		 FROM rentals WHERE subject_id = $1`, subjectID)
 	if err != nil {
 		return nil, fmt.Errorf("query rentals by subject: %w", err)
@@ -60,7 +62,7 @@ func (r *PostgresRepository) FindBySubjectID(ctx context.Context, subjectID stri
 
 func (r *PostgresRepository) FindByTenantPartyID(ctx context.Context, tenantPartyID string) ([]domain.Rental, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id, created_at
+		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id
 		 FROM rentals WHERE tenant_party_id = $1`, tenantPartyID)
 	if err != nil {
 		return nil, fmt.Errorf("query rentals by tenant: %w", err)
@@ -71,7 +73,7 @@ func (r *PostgresRepository) FindByTenantPartyID(ctx context.Context, tenantPart
 
 func (r *PostgresRepository) FindByOrgID(ctx context.Context, orgID string) ([]domain.Rental, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id, created_at
+		`SELECT id, subject_id, tenant_party_id, org_id, created_by_account_id
 		 FROM rentals WHERE org_id = $1`, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("query rentals by org: %w", err)
@@ -92,7 +94,7 @@ func scanRentals(rows pgx.Rows) ([]domain.Rental, error) {
 	var result []domain.Rental
 	for rows.Next() {
 		var rental domain.Rental
-		if err := rows.Scan(&rental.ID, &rental.SubjectID, &rental.TenantPartyID, &rental.OrgID, &rental.CreatedByAccountID, &rental.CreatedAt); err != nil {
+		if err := rows.Scan(&rental.ID, &rental.SubjectID, &rental.TenantPartyID, &rental.OrgID, &rental.CreatedByAccountID); err != nil {
 			return nil, fmt.Errorf("scan rental: %w", err)
 		}
 		result = append(result, rental)

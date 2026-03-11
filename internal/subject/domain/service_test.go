@@ -1,7 +1,6 @@
 package domain_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -12,145 +11,199 @@ import (
 
 var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
-type mockRepository struct {
-	subjects map[string]domain.Subject
-}
-
-func newMockRepo() *mockRepository {
-	return &mockRepository{subjects: make(map[string]domain.Subject)}
-}
-
-func (m *mockRepository) Create(_ context.Context, subject domain.Subject) error {
-	m.subjects[subject.ID] = subject
-	return nil
-}
-
-func (m *mockRepository) FindByID(_ context.Context, id string) (domain.Subject, error) {
-	s, ok := m.subjects[id]
-	if !ok {
-		return domain.Subject{}, domain.ErrSubjectNotFound
+func applyAll(s *domain.Subject, events []domain.DomainEvent) {
+	for _, e := range events {
+		s.Apply(e.EventType, e.Payload)
 	}
-	return s, nil
 }
 
-func (m *mockRepository) FindByIDs(_ context.Context, ids []string) ([]domain.Subject, error) {
-	var result []domain.Subject
-	for _, id := range ids {
-		if s, ok := m.subjects[id]; ok {
-			result = append(result, s)
-		}
-	}
-	return result, nil
-}
-
-func (m *mockRepository) FindByOrganizationID(_ context.Context, orgID string) ([]domain.Subject, error) {
-	var result []domain.Subject
-	for _, s := range m.subjects {
-		if s.OwningOrganizationID == orgID {
-			result = append(result, s)
-		}
-	}
-	return result, nil
-}
-
-func TestCreateSubject_Success(t *testing.T) {
+func TestRegisterSubject_Success(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
+	s := domain.NewSubject(testClock)
 
-	subject, err := svc.CreateSubject(context.Background(), "Flussufer Apartments", "Unit 12A", "org-1", "account-1")
+	events, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:          "subject-1",
+		SubjectKind:        domain.SubjectKindDwelling,
+		Name:               "Flussufer Apartments",
+		Detail:             "Unit 12A",
+		OrgID:              "org-1",
+		CreatedByAccountID: "account-1",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if subject.ID == "" {
-		t.Error("expected non-empty ID")
+
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if subject.Name != "Flussufer Apartments" {
-		t.Errorf("expected name 'Flussufer Apartments', got %q", subject.Name)
+	if events[0].EventType != domain.EventSubjectRegistered {
+		t.Errorf("expected event type %s, got %s", domain.EventSubjectRegistered, events[0].EventType)
 	}
-	if subject.Detail != "Unit 12A" {
-		t.Errorf("expected detail 'Unit 12A', got %q", subject.Detail)
+
+	payload := events[0].Payload.(domain.SubjectRegistered)
+	if payload.SubjectID != "subject-1" {
+		t.Errorf("expected subject ID 'subject-1', got %q", payload.SubjectID)
 	}
-	if subject.OwningOrganizationID != "org-1" {
-		t.Errorf("expected org 'org-1', got %q", subject.OwningOrganizationID)
+	if payload.SubjectKind != domain.SubjectKindDwelling {
+		t.Errorf("expected kind 'dwelling', got %q", payload.SubjectKind)
 	}
-	if subject.CreatedAt != testClock.Now() {
-		t.Errorf("expected created at %v, got %v", testClock.Now(), subject.CreatedAt)
+	if payload.Name != "Flussufer Apartments" {
+		t.Errorf("expected name 'Flussufer Apartments', got %q", payload.Name)
+	}
+	if payload.Detail != "Unit 12A" {
+		t.Errorf("expected detail 'Unit 12A', got %q", payload.Detail)
+	}
+	if payload.OrgID != "org-1" {
+		t.Errorf("expected org 'org-1', got %q", payload.OrgID)
+	}
+	if payload.CreatedByAccountID != "account-1" {
+		t.Errorf("expected created by 'account-1', got %q", payload.CreatedByAccountID)
+	}
+	if payload.RegisteredAt != testClock.Now() {
+		t.Errorf("expected registered at %v, got %v", testClock.Now(), payload.RegisteredAt)
 	}
 }
 
-func TestCreateSubject_EmptyName(t *testing.T) {
+func TestRegisterSubject_InvalidKind(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
+	s := domain.NewSubject(testClock)
 
-	_, err := svc.CreateSubject(context.Background(), "  ", "detail", "org-1", "account-1")
+	_, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:   "subject-1",
+		SubjectKind: domain.SubjectKind("invalid"),
+		Name:        "Name",
+		Detail:      "detail",
+		OrgID:       "org-1",
+	})
+	if !errors.Is(err, domain.ErrInvalidSubjectKind) {
+		t.Errorf("expected ErrInvalidSubjectKind, got %v", err)
+	}
+}
+
+func TestRegisterSubject_EmptyName(t *testing.T) {
+	t.Parallel()
+	s := domain.NewSubject(testClock)
+
+	_, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:   "subject-1",
+		SubjectKind: domain.SubjectKindDwelling,
+		Name:        "   ",
+		Detail:      "detail",
+		OrgID:       "org-1",
+	})
 	if !errors.Is(err, domain.ErrEmptyName) {
 		t.Errorf("expected ErrEmptyName, got %v", err)
 	}
 }
 
-func TestCreateSubject_TrimsName(t *testing.T) {
+func TestRegisterSubject_AlreadyRegistered(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
+	s := domain.NewSubject(testClock)
 
-	subject, err := svc.CreateSubject(context.Background(), "  Flussufer  ", "  Unit 12A  ", "org-1", "account-1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if subject.Name != "Flussufer" {
-		t.Errorf("expected trimmed name, got %q", subject.Name)
-	}
-	if subject.Detail != "Unit 12A" {
-		t.Errorf("expected trimmed detail, got %q", subject.Detail)
+	events, _ := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:   "subject-1",
+		SubjectKind: domain.SubjectKindDwelling,
+		Name:        "Flussufer Apartments",
+		Detail:      "Unit 12A",
+		OrgID:       "org-1",
+	})
+	applyAll(s, events)
+
+	_, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:   "subject-2",
+		SubjectKind: domain.SubjectKindDwelling,
+		Name:        "Another Property",
+		OrgID:       "org-1",
+	})
+	if !errors.Is(err, domain.ErrAlreadyRegistered) {
+		t.Errorf("expected ErrAlreadyRegistered, got %v", err)
 	}
 }
 
-func TestCreateSubject_PersistsToRepo(t *testing.T) {
+func TestRegisterSubject_TrimsNameAndDetail(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
+	s := domain.NewSubject(testClock)
 
-	subject, err := svc.CreateSubject(context.Background(), "Flussufer", "Unit 12A", "org-1", "account-1")
+	events, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:   "subject-1",
+		SubjectKind: domain.SubjectKindDwelling,
+		Name:        "  Flussufer  ",
+		Detail:      "  Unit 12A  ",
+		OrgID:       "org-1",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	found, err := svc.FindByID(context.Background(), subject.ID)
-	if err != nil {
-		t.Fatalf("FindByID failed: %v", err)
+	payload := events[0].Payload.(domain.SubjectRegistered)
+	if payload.Name != "Flussufer" {
+		t.Errorf("expected trimmed name 'Flussufer', got %q", payload.Name)
 	}
-	if found.Name != "Flussufer" {
-		t.Errorf("expected name 'Flussufer', got %q", found.Name)
-	}
-}
-
-func TestFindByID_NotFound(t *testing.T) {
-	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
-
-	_, err := svc.FindByID(context.Background(), "nonexistent")
-	if !errors.Is(err, domain.ErrSubjectNotFound) {
-		t.Errorf("expected ErrSubjectNotFound, got %v", err)
+	if payload.Detail != "Unit 12A" {
+		t.Errorf("expected trimmed detail 'Unit 12A', got %q", payload.Detail)
 	}
 }
 
-func TestFindByOrganizationID(t *testing.T) {
+func TestApply_SubjectRegistered(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewSubjectService(repo, testClock)
+	s := domain.NewSubject(testClock)
 
-	_, _ = svc.CreateSubject(context.Background(), "Property A", "Unit 1", "org-1", "account-1")
-	_, _ = svc.CreateSubject(context.Background(), "Property B", "Unit 2", "org-1", "account-1")
-	_, _ = svc.CreateSubject(context.Background(), "Other", "Unit 3", "org-2", "account-2")
+	events, _ := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:          "subject-1",
+		SubjectKind:        domain.SubjectKindDwelling,
+		Name:               "Flussufer Apartments",
+		Detail:             "Unit 12A",
+		OrgID:              "org-1",
+		CreatedByAccountID: "account-1",
+	})
+	applyAll(s, events)
 
-	subjects, err := svc.FindByOrganizationID(context.Background(), "org-1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if s.ID != "subject-1" {
+		t.Errorf("expected ID 'subject-1', got %q", s.ID)
 	}
-	if len(subjects) != 2 {
-		t.Errorf("expected 2 subjects for org-1, got %d", len(subjects))
+	if s.SubjectKind != domain.SubjectKindDwelling {
+		t.Errorf("expected kind 'dwelling', got %q", s.SubjectKind)
+	}
+	if s.Name != "Flussufer Apartments" {
+		t.Errorf("expected name 'Flussufer Apartments', got %q", s.Name)
+	}
+	if s.Detail != "Unit 12A" {
+		t.Errorf("expected detail 'Unit 12A', got %q", s.Detail)
+	}
+	if s.OwningOrganizationID != "org-1" {
+		t.Errorf("expected org 'org-1', got %q", s.OwningOrganizationID)
+	}
+	if s.CreatedByAccountID != "account-1" {
+		t.Errorf("expected created by 'account-1', got %q", s.CreatedByAccountID)
+	}
+	if s.CreatedAt != testClock.Now() {
+		t.Errorf("expected created at %v, got %v", testClock.Now(), s.CreatedAt)
+	}
+	if !s.Registered {
+		t.Error("expected Registered=true")
+	}
+	if s.Version != 1 {
+		t.Errorf("expected Version 1, got %d", s.Version)
+	}
+}
+
+func TestValidSubjectKinds(t *testing.T) {
+	t.Parallel()
+	kinds := domain.ValidSubjectKinds()
+	if len(kinds) != 1 {
+		t.Errorf("expected 1 valid kind, got %d", len(kinds))
+	}
+	if kinds[0] != domain.SubjectKindDwelling {
+		t.Errorf("expected 'dwelling', got %q", kinds[0])
+	}
+}
+
+func TestIsValidSubjectKind(t *testing.T) {
+	t.Parallel()
+	if !domain.IsValidSubjectKind(domain.SubjectKindDwelling) {
+		t.Error("expected 'dwelling' to be valid")
+	}
+	if domain.IsValidSubjectKind(domain.SubjectKind("bogus")) {
+		t.Error("expected 'bogus' to be invalid")
 	}
 }

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	// Account vertical
@@ -21,20 +23,19 @@ import (
 	orgsub "github.com/luminor-project/luminor-core-go-playground/internal/organization/subscriber"
 
 	// Party vertical
-	partydomain "github.com/luminor-project/luminor-core-go-playground/internal/party/domain"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
 	partyinfra "github.com/luminor-project/luminor-core-go-playground/internal/party/infra"
 	partysub "github.com/luminor-project/luminor-core-go-playground/internal/party/subscriber"
 
 	// Subject vertical
-	subjectdomain "github.com/luminor-project/luminor-core-go-playground/internal/subject/domain"
 	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
 	subjectinfra "github.com/luminor-project/luminor-core-go-playground/internal/subject/infra"
+	subjectsub "github.com/luminor-project/luminor-core-go-playground/internal/subject/subscriber"
 
 	// Rental vertical
-	rentaldomain "github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
 	rentalfacade "github.com/luminor-project/luminor-core-go-playground/internal/rental/facade"
 	rentalinfra "github.com/luminor-project/luminor-core-go-playground/internal/rental/infra"
+	rentalsub "github.com/luminor-project/luminor-core-go-playground/internal/rental/subscriber"
 
 	// App verticals
 	casefacade "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/facade"
@@ -80,6 +81,8 @@ func main() {
 	defer db.Close()
 
 	ctx := context.Background()
+	cleanupExistingAccount(ctx, db, email)
+
 	bus := eventbus.New()
 	clk := clock.New()
 
@@ -90,9 +93,12 @@ func main() {
 		accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk),
 		bus, outbox.NewPostgresStore(db),
 	)
-	partyFac := partyfacade.New(partydomain.NewPartyService(partyinfra.NewPostgresRepository(db), clk))
-	subjectFac := subjectfacade.New(subjectdomain.NewSubjectService(subjectinfra.NewPostgresRepository(db), clk))
-	rentalFac := rentalfacade.New(rentaldomain.NewRentalService(rentalinfra.NewPostgresRepository(db), clk))
+	partyRepo := partyinfra.NewPostgresRepository(db)
+	partyFac := partyfacade.New(eventstore.NewPostgresStore(db), bus, clk, partyRepo)
+	subjectRepo := subjectinfra.NewPostgresRepository(db)
+	subjectFac := subjectfacade.New(eventstore.NewPostgresStore(db), bus, clk, subjectRepo)
+	rentalRepo := rentalinfra.NewPostgresRepository(db)
+	rentalFac := rentalfacade.New(eventstore.NewPostgresStore(db), bus, clk, rentalRepo)
 	wiFacade := workitemfacade.New(eventstore.NewPostgresStore(db), bus, clk)
 	caseFac := casefacade.New(wiFacade, agentworkload.NewFakeAdapter(), subjectFac)
 	inqFacade := inquiryfacade.New(rentalFac, caseFac, partyFac)
@@ -101,8 +107,11 @@ func main() {
 	// ── Register all event subscribers ────────────────────────────────
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)
 	accountsub.RegisterOrgChangedSubscriber(bus, acctFacade)
+	partysub.RegisterProjectionSubscribers(bus, partyRepo)
 	partysub.RegisterAccountJoinedOrgSubscriber(bus, partyFac, acctFacade)
+	subjectsub.RegisterProjectionSubscribers(bus, subjectRepo)
 	casesub.RegisterProjectionSubscribers(bus, caseinfra.NewDashboardStore(db), partyFac, subjectFac)
+	rentalsub.RegisterProjectionSubscribers(bus, rentalRepo)
 
 	// ── Seed ──────────────────────────────────────────────────────────
 	sc := seedAccountAndOrg(ctx, acctFacade, orgService, partyFac, email, password)
@@ -290,6 +299,93 @@ type inquirySubmitter interface {
 
 type workitemConfirmer interface {
 	ConfirmOutboundMessage(ctx context.Context, workItemID string, dto workitemfacade.ConfirmOutboundMessageDTO) error
+}
+
+// ── Cleanup (idempotency) ─────────────────────────────────────────────────
+
+// cleanupExistingAccount removes all data from a previous seed run for the
+// given email so the seed can be re-run idempotently.
+func cleanupExistingAccount(ctx context.Context, db *pgxpool.Pool, email string) {
+	var accountID string
+	err := db.QueryRow(ctx,
+		`SELECT id FROM account_cores WHERE email = $1`, email).Scan(&accountID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return
+		}
+		slog.Error("cleanup: lookup account", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("cleanup: removing previous seed data", "email", email, "account_id", accountID)
+
+	// All seed data hangs off organizations owned by this account.
+	// Delete everything in one transaction, in dependency order.
+	queries := []string{
+		// 1) Work-item event streams & case dashboard (traced through org→parties)
+		`DELETE FROM case_dashboard WHERE work_item_id IN (
+		     SELECT REPLACE(e.stream_id, 'workitem-', '')
+		     FROM events e
+		     WHERE e.stream_id LIKE 'workitem-%'
+		       AND e.payload->>'party_id' IN (
+		           SELECT id::text FROM parties WHERE owning_organization_id IN (
+		               SELECT id FROM organizations WHERE owning_users_id = $1)))`,
+		`DELETE FROM events WHERE stream_id IN (
+		     SELECT DISTINCT stream_id FROM events
+		     WHERE stream_id LIKE 'workitem-%'
+		       AND payload->>'party_id' IN (
+		           SELECT id::text FROM parties WHERE owning_organization_id IN (
+		               SELECT id FROM organizations WHERE owning_users_id = $1)))`,
+		// 2) Entity event streams
+		`DELETE FROM events WHERE stream_id IN (
+		     SELECT 'party-' || id::text FROM parties
+		     WHERE owning_organization_id IN (
+		         SELECT id FROM organizations WHERE owning_users_id = $1))`,
+		`DELETE FROM events WHERE stream_id IN (
+		     SELECT 'subject-' || id::text FROM subjects
+		     WHERE owning_organization_id IN (
+		         SELECT id FROM organizations WHERE owning_users_id = $1))`,
+		`DELETE FROM events WHERE stream_id IN (
+		     SELECT 'rental-' || id::text FROM rentals
+		     WHERE org_id IN (
+		         SELECT id FROM organizations WHERE owning_users_id = $1))`,
+		// 3) Projection tables
+		`DELETE FROM rentals WHERE org_id IN (
+		     SELECT id FROM organizations WHERE owning_users_id = $1)`,
+		`DELETE FROM subjects WHERE owning_organization_id IN (
+		     SELECT id FROM organizations WHERE owning_users_id = $1)`,
+		`DELETE FROM parties WHERE owning_organization_id IN (
+		     SELECT id FROM organizations WHERE owning_users_id = $1)`,
+		// 4) Account relationships
+		`DELETE FROM account_party_memberships WHERE account_id = $1`,
+		`DELETE FROM account_party_pending_links WHERE org_id IN (
+		     SELECT id FROM organizations WHERE owning_users_id = $1)`,
+		// 5) Organization (cascades to members, groups, invitations)
+		`DELETE FROM organizations WHERE owning_users_id = $1`,
+		// 6) Account
+		`DELETE FROM account_cores WHERE id = $1`,
+	}
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		slog.Error("cleanup: begin transaction", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for _, q := range queries {
+		if _, err := tx.Exec(ctx, q, accountID); err != nil {
+			slog.Error("cleanup: exec failed", "error", err)
+			os.Exit(1)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("cleanup: commit", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("cleanup: previous seed data removed")
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

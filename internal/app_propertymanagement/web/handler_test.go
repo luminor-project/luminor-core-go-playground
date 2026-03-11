@@ -55,7 +55,7 @@ type fakeSubjectLister struct {
 	subjects []subjectfacade.SubjectInfoDTO
 }
 
-func (f *fakeSubjectLister) ListSubjectsByOrg(_ context.Context, _ string) ([]subjectfacade.SubjectInfoDTO, error) {
+func (f *fakeSubjectLister) ListSubjectsByOrgAndKind(_ context.Context, _ string, _ subjectfacade.SubjectKind) ([]subjectfacade.SubjectInfoDTO, error) {
 	return f.subjects, nil
 }
 

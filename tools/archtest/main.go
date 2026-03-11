@@ -65,6 +65,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	eventSourcingViolations, err := checkEventSourcingRequired(p)
+	if err != nil {
+		fmt.Printf("archtest event sourcing check failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	violations := append(importViolations, typeViolations...)
 	violations = append(violations, domainViolations...)
 	violations = append(violations, facadeIfaceViolations...)
@@ -72,6 +78,7 @@ func main() {
 	violations = append(violations, unknownViolations...)
 	violations = append(violations, eventstoreViolations...)
 	violations = append(violations, timeNowViolations...)
+	violations = append(violations, eventSourcingViolations...)
 	sort.Strings(violations)
 	reportOnly := os.Getenv("ARCHTEST_REPORT_ONLY") == "1"
 

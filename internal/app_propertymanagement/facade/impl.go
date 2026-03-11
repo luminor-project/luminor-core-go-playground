@@ -59,6 +59,7 @@ func New(parties partyCreator, subjects subjectCreator, rentals rentalCreator, a
 
 func (f *facadeImpl) CreateProperty(ctx context.Context, dto CreatePropertyDTO) (string, error) {
 	return f.subjects.CreateSubject(ctx, subjectfacade.CreateSubjectDTO{
+		SubjectKind:        subjectfacade.SubjectKindDwelling,
 		Name:               dto.Name,
 		Detail:             dto.Detail,
 		OwningOrgID:        dto.OrgID,

@@ -482,6 +482,104 @@ func checkFileForTimeNow(rootDir, path string) ([]string, error) {
 	return violations, nil
 }
 
+// checkEventSourcingRequired verifies that verticals declared as event-sourced
+// actually follow the event-sourcing pattern:
+//  1. The facade package imports platform/eventstore (writes go through event store, not CRUD).
+//  2. The domain package exports a DeserializeEvent function (event replay/reconstitution).
+//
+// Note: CQRS projections (subscriber/) may live in the vertical itself or in an
+// application-level vertical (e.g. workitem projections live in app_casehandling).
+func checkEventSourcingRequired(p policy) ([]string, error) {
+	eventstorePkg := p.modulePath + "/internal/platform/eventstore"
+	var violations []string
+
+	for _, vertical := range p.eventSourcedVerticals {
+		// 1. Facade must import eventstore.
+		facadeDir := filepath.Join(p.rootDir, "internal", vertical, "facade")
+		if !dirExists(facadeDir) {
+			violations = append(violations, fmt.Sprintf(
+				"internal/%s: event-sourced vertical has no facade/ package", vertical))
+			continue
+		}
+		if !dirImportsPackage(facadeDir, eventstorePkg) {
+			violations = append(violations, fmt.Sprintf(
+				"internal/%s/facade does not import platform/eventstore (event-sourced verticals must persist through the event store, not CRUD)",
+				vertical))
+		}
+
+		// 2. domain/ must export DeserializeEvent.
+		domainDir := filepath.Join(p.rootDir, "internal", vertical, "domain")
+		if !dirExists(domainDir) {
+			violations = append(violations, fmt.Sprintf(
+				"internal/%s: event-sourced vertical has no domain/ package", vertical))
+			continue
+		}
+		if !dirExportsFunc(domainDir, "DeserializeEvent") {
+			violations = append(violations, fmt.Sprintf(
+				"internal/%s/domain does not export DeserializeEvent (needed for event replay/reconstitution)",
+				vertical))
+		}
+	}
+	return violations, nil
+}
+
+// dirExists returns true if the path is an existing directory.
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+// dirImportsPackage returns true if any non-test .go file in dir imports the given package.
+func dirImportsPackage(dir, pkg string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		imports, err := getImports(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		for _, imp := range imports {
+			if imp == pkg {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// dirExportsFunc returns true if any non-test .go file in dir declares an exported function with the given name.
+func dirExportsFunc(dir, funcName string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	fset := token.NewFileSet()
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, filepath.Join(dir, entry.Name()), nil, 0)
+		if err != nil {
+			continue
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil {
+				continue
+			}
+			if fn.Name.Name == funcName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func relPath(root, path string) string {
 	if root == "" || root == "." {
 		return path

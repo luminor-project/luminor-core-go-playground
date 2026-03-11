@@ -1,7 +1,6 @@
 package domain_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -12,209 +11,197 @@ import (
 
 var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
-// mockRepository is an in-memory repository for testing.
-type mockRepository struct {
-	parties map[string]domain.Party
-}
-
-func newMockRepo() *mockRepository {
-	return &mockRepository{parties: make(map[string]domain.Party)}
-}
-
-func (m *mockRepository) Create(_ context.Context, party domain.Party) error {
-	m.parties[party.ID] = party
-	return nil
-}
-
-func (m *mockRepository) FindByID(_ context.Context, id string) (domain.Party, error) {
-	p, ok := m.parties[id]
-	if !ok {
-		return domain.Party{}, domain.ErrPartyNotFound
+func applyAll(p *domain.Party, events []domain.DomainEvent) {
+	for _, e := range events {
+		p.Apply(e.EventType, e.Payload)
 	}
-	return p, nil
 }
 
-func (m *mockRepository) FindByIDs(_ context.Context, ids []string) ([]domain.Party, error) {
-	var result []domain.Party
-	for _, id := range ids {
-		if p, ok := m.parties[id]; ok {
-			result = append(result, p)
-		}
-	}
-	return result, nil
-}
-
-func (m *mockRepository) FindByOrganizationID(_ context.Context, orgID string) ([]domain.Party, error) {
-	var result []domain.Party
-	for _, p := range m.parties {
-		if p.OwningOrganizationID == orgID {
-			result = append(result, p)
-		}
-	}
-	return result, nil
-}
-
-func (m *mockRepository) FindByOrgAndKind(_ context.Context, orgID string, kind domain.PartyKind) ([]domain.Party, error) {
-	var result []domain.Party
-	for _, p := range m.parties {
-		if p.OwningOrganizationID == orgID && p.PartyKind == kind {
-			result = append(result, p)
-		}
-	}
-	return result, nil
-}
-
-func TestCreateParty_Success(t *testing.T) {
+func TestRegisterParty_Success(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	party, err := svc.CreateParty(context.Background(), "Anna Schmidt", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
+	events, err := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:            "party-1",
+		Name:               "Anna Schmidt",
+		ActorKind:          domain.ActorKindHuman,
+		PartyKind:          domain.PartyKindTenant,
+		OrgID:              "org-1",
+		CreatedByAccountID: "account-1",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if party.ID == "" {
-		t.Error("expected non-empty ID")
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if party.Name != "Anna Schmidt" {
-		t.Errorf("expected name 'Anna Schmidt', got %q", party.Name)
+	if events[0].EventType != domain.EventPartyRegistered {
+		t.Errorf("expected event type %s, got %s", domain.EventPartyRegistered, events[0].EventType)
 	}
-	if party.ActorKind != domain.ActorKindHuman {
-		t.Errorf("expected actor kind 'human', got %q", party.ActorKind)
+
+	payload := events[0].Payload.(domain.PartyRegistered)
+	if payload.PartyID != "party-1" {
+		t.Errorf("expected party ID 'party-1', got %q", payload.PartyID)
 	}
-	if party.PartyKind != domain.PartyKindTenant {
-		t.Errorf("expected party kind 'tenant', got %q", party.PartyKind)
+	if payload.Name != "Anna Schmidt" {
+		t.Errorf("expected name 'Anna Schmidt', got %q", payload.Name)
 	}
-	if party.OwningOrganizationID != "org-1" {
-		t.Errorf("expected org 'org-1', got %q", party.OwningOrganizationID)
+	if payload.ActorKind != domain.ActorKindHuman {
+		t.Errorf("expected actor kind 'human', got %q", payload.ActorKind)
 	}
-	if party.CreatedByAccountID != "account-1" {
-		t.Errorf("expected created by 'account-1', got %q", party.CreatedByAccountID)
+	if payload.PartyKind != domain.PartyKindTenant {
+		t.Errorf("expected party kind 'tenant', got %q", payload.PartyKind)
 	}
-	if party.CreatedAt != testClock.Now() {
-		t.Errorf("expected created at %v, got %v", testClock.Now(), party.CreatedAt)
+	if payload.OrgID != "org-1" {
+		t.Errorf("expected org 'org-1', got %q", payload.OrgID)
+	}
+	if payload.CreatedByAccountID != "account-1" {
+		t.Errorf("expected created by 'account-1', got %q", payload.CreatedByAccountID)
+	}
+	if payload.RegisteredAt != testClock.Now() {
+		t.Errorf("expected registered at %v, got %v", testClock.Now(), payload.RegisteredAt)
 	}
 }
 
-func TestCreateParty_TrimsName(t *testing.T) {
+func TestRegisterParty_TrimsName(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	party, err := svc.CreateParty(context.Background(), "  Anna Schmidt  ", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
+	events, err := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:   "party-1",
+		Name:      "  Anna Schmidt  ",
+		ActorKind: domain.ActorKindHuman,
+		PartyKind: domain.PartyKindTenant,
+		OrgID:     "org-1",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if party.Name != "Anna Schmidt" {
-		t.Errorf("expected trimmed name, got %q", party.Name)
+	payload := events[0].Payload.(domain.PartyRegistered)
+	if payload.Name != "Anna Schmidt" {
+		t.Errorf("expected trimmed name, got %q", payload.Name)
 	}
 }
 
-func TestCreateParty_EmptyName(t *testing.T) {
+func TestRegisterParty_EmptyName(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	_, err := svc.CreateParty(context.Background(), "   ", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
+	_, err := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:   "party-1",
+		Name:      "   ",
+		ActorKind: domain.ActorKindHuman,
+		PartyKind: domain.PartyKindTenant,
+		OrgID:     "org-1",
+	})
 	if !errors.Is(err, domain.ErrEmptyName) {
 		t.Errorf("expected ErrEmptyName, got %v", err)
 	}
 }
 
-func TestCreateParty_InvalidPartyKind(t *testing.T) {
+func TestRegisterParty_InvalidPartyKind(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	_, err := svc.CreateParty(context.Background(), "Test", domain.ActorKindHuman, domain.PartyKind("unknown"), "org-1", "account-1")
+	_, err := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:   "party-1",
+		Name:      "Test",
+		ActorKind: domain.ActorKindHuman,
+		PartyKind: domain.PartyKind("unknown"),
+		OrgID:     "org-1",
+	})
 	if !errors.Is(err, domain.ErrInvalidPartyKind) {
 		t.Errorf("expected ErrInvalidPartyKind, got %v", err)
 	}
 }
 
-func TestCreateParty_PersistsToRepo(t *testing.T) {
+func TestRegisterParty_AlreadyRegistered(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	party, err := svc.CreateParty(context.Background(), "Anna Schmidt", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	events, _ := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:   "party-1",
+		Name:      "Anna Schmidt",
+		ActorKind: domain.ActorKindHuman,
+		PartyKind: domain.PartyKindTenant,
+		OrgID:     "org-1",
+	})
+	applyAll(p, events)
 
-	found, err := svc.FindByID(context.Background(), party.ID)
-	if err != nil {
-		t.Fatalf("FindByID failed: %v", err)
-	}
-	if found.Name != "Anna Schmidt" {
-		t.Errorf("expected name 'Anna Schmidt', got %q", found.Name)
+	_, err := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:   "party-2",
+		Name:      "Someone Else",
+		ActorKind: domain.ActorKindHuman,
+		PartyKind: domain.PartyKindTenant,
+		OrgID:     "org-1",
+	})
+	if !errors.Is(err, domain.ErrAlreadyRegistered) {
+		t.Errorf("expected ErrAlreadyRegistered, got %v", err)
 	}
 }
 
-func TestFindByID_NotFound(t *testing.T) {
+func TestApply_PartyRegistered(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
+	p := domain.NewParty(testClock)
 
-	_, err := svc.FindByID(context.Background(), "nonexistent")
-	if !errors.Is(err, domain.ErrPartyNotFound) {
-		t.Errorf("expected ErrPartyNotFound, got %v", err)
+	events, _ := p.RegisterParty(domain.RegisterPartyCmd{
+		PartyID:            "party-1",
+		Name:               "Anna Schmidt",
+		ActorKind:          domain.ActorKindHuman,
+		PartyKind:          domain.PartyKindTenant,
+		OrgID:              "org-1",
+		CreatedByAccountID: "account-1",
+	})
+	applyAll(p, events)
+
+	if p.ID != "party-1" {
+		t.Errorf("expected ID 'party-1', got %q", p.ID)
+	}
+	if p.Name != "Anna Schmidt" {
+		t.Errorf("expected name 'Anna Schmidt', got %q", p.Name)
+	}
+	if p.ActorKind != domain.ActorKindHuman {
+		t.Errorf("expected actor kind 'human', got %q", p.ActorKind)
+	}
+	if p.PartyKind != domain.PartyKindTenant {
+		t.Errorf("expected party kind 'tenant', got %q", p.PartyKind)
+	}
+	if p.OwningOrganizationID != "org-1" {
+		t.Errorf("expected org 'org-1', got %q", p.OwningOrganizationID)
+	}
+	if p.CreatedByAccountID != "account-1" {
+		t.Errorf("expected created by 'account-1', got %q", p.CreatedByAccountID)
+	}
+	if !p.Registered {
+		t.Error("expected Registered=true")
+	}
+	if p.Version != 1 {
+		t.Errorf("expected Version 1, got %d", p.Version)
 	}
 }
 
-func TestFindByOrganizationID(t *testing.T) {
+func TestValidPartyKinds(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
-
-	_, _ = svc.CreateParty(context.Background(), "Anna", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
-	_, _ = svc.CreateParty(context.Background(), "Sarah", domain.ActorKindHuman, domain.PartyKindPropertyManager, "org-1", "account-1")
-	_, _ = svc.CreateParty(context.Background(), "Other", domain.ActorKindHuman, domain.PartyKindTenant, "org-2", "account-2")
-
-	parties, err := svc.FindByOrganizationID(context.Background(), "org-1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(parties) != 2 {
-		t.Errorf("expected 2 parties for org-1, got %d", len(parties))
+	kinds := domain.ValidPartyKinds()
+	if len(kinds) != 3 {
+		t.Errorf("expected 3 valid party kinds, got %d", len(kinds))
 	}
 }
 
-func TestFindByOrgAndKind(t *testing.T) {
+func TestIsValidPartyKind(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
-
-	_, _ = svc.CreateParty(context.Background(), "Anna", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
-	_, _ = svc.CreateParty(context.Background(), "Sarah", domain.ActorKindHuman, domain.PartyKindPropertyManager, "org-1", "account-1")
-
-	tenants, err := svc.FindByOrgAndKind(context.Background(), "org-1", domain.PartyKindTenant)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if !domain.IsValidPartyKind(domain.PartyKindTenant) {
+		t.Error("expected tenant to be valid")
 	}
-	if len(tenants) != 1 {
-		t.Errorf("expected 1 tenant, got %d", len(tenants))
+	if !domain.IsValidPartyKind(domain.PartyKindPropertyManager) {
+		t.Error("expected property_manager to be valid")
 	}
-	if tenants[0].Name != "Anna" {
-		t.Errorf("expected tenant name 'Anna', got %q", tenants[0].Name)
+	if !domain.IsValidPartyKind(domain.PartyKindAssistant) {
+		t.Error("expected assistant to be valid")
 	}
-}
-
-func TestFindByIDs(t *testing.T) {
-	t.Parallel()
-	repo := newMockRepo()
-	svc := domain.NewPartyService(repo, testClock)
-
-	p1, _ := svc.CreateParty(context.Background(), "Anna", domain.ActorKindHuman, domain.PartyKindTenant, "org-1", "account-1")
-	p2, _ := svc.CreateParty(context.Background(), "Sarah", domain.ActorKindHuman, domain.PartyKindPropertyManager, "org-1", "account-1")
-
-	parties, err := svc.FindByIDs(context.Background(), []string{p1.ID, p2.ID})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(parties) != 2 {
-		t.Errorf("expected 2 parties, got %d", len(parties))
+	if domain.IsValidPartyKind(domain.PartyKind("bogus")) {
+		t.Error("expected 'bogus' to be invalid")
 	}
 }

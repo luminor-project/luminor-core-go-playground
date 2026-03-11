@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,13 +22,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) Create(ctx context.Context, p domain.Party) error {
+// UpsertProjection inserts or updates a party in the read model (parties table).
+func (r *PostgresRepository) UpsertProjection(ctx context.Context, id, actorKind, partyKind, name, orgID, createdByAccountID string, createdAt time.Time) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO parties (id, actor_kind, party_kind, name, owning_organization_id, created_by_account_id, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		p.ID, string(p.ActorKind), string(p.PartyKind), p.Name, p.OwningOrganizationID, p.CreatedByAccountID, p.CreatedAt)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (id) DO UPDATE SET actor_kind = $2, party_kind = $3, name = $4, owning_organization_id = $5, created_by_account_id = $6, created_at = $7`,
+		id, actorKind, partyKind, name, orgID, createdByAccountID, createdAt)
 	if err != nil {
-		return fmt.Errorf("insert party: %w", err)
+		return fmt.Errorf("upsert party projection: %w", err)
 	}
 	return nil
 }

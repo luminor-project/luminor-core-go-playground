@@ -36,20 +36,19 @@ import (
 	ragweb "github.com/luminor-project/luminor-core-go-playground/internal/rag/web"
 
 	// Party vertical
-	partydomain "github.com/luminor-project/luminor-core-go-playground/internal/party/domain"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
 	partyinfra "github.com/luminor-project/luminor-core-go-playground/internal/party/infra"
 	partysub "github.com/luminor-project/luminor-core-go-playground/internal/party/subscriber"
 
 	// Subject vertical
-	subjectdomain "github.com/luminor-project/luminor-core-go-playground/internal/subject/domain"
 	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
 	subjectinfra "github.com/luminor-project/luminor-core-go-playground/internal/subject/infra"
+	subjectsub "github.com/luminor-project/luminor-core-go-playground/internal/subject/subscriber"
 
 	// Rental vertical
-	rentaldomain "github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
 	rentalfacade "github.com/luminor-project/luminor-core-go-playground/internal/rental/facade"
 	rentalinfra "github.com/luminor-project/luminor-core-go-playground/internal/rental/infra"
+	rentalsub "github.com/luminor-project/luminor-core-go-playground/internal/rental/subscriber"
 
 	// WorkItem vertical
 	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
@@ -110,14 +109,20 @@ func main() {
 	ragService := ragdomain.NewRAGService(raginfra.NewPostgresRepository(ragDB), ollamaClient, &ollamaChatAdapter{client: ollamaClient}, cfg.EmbedModel, cfg.ChatModel, clk)
 	rFacade := ragfacade.New(ragService, bus)
 
-	partyFac := partyfacade.New(partydomain.NewPartyService(partyinfra.NewPostgresRepository(db), clk))
-	subjectFac := subjectfacade.New(subjectdomain.NewSubjectService(subjectinfra.NewPostgresRepository(db), clk))
-	rentalFac := rentalfacade.New(rentaldomain.NewRentalService(rentalinfra.NewPostgresRepository(db), clk))
+	partyRepo := partyinfra.NewPostgresRepository(db)
+	partyFac := partyfacade.New(eventstore.NewPostgresStore(db), bus, clk, partyRepo)
+	subjectRepo := subjectinfra.NewPostgresRepository(db)
+	subjectFac := subjectfacade.New(eventstore.NewPostgresStore(db), bus, clk, subjectRepo)
+	rentalRepo := rentalinfra.NewPostgresRepository(db)
+	rentalFac := rentalfacade.New(eventstore.NewPostgresStore(db), bus, clk, rentalRepo)
 
 	// ── Wire Event Subscribers ─────────────────────────────────────────
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)
 	accountsub.RegisterOrgChangedSubscriber(bus, acctFacade)
+	partysub.RegisterProjectionSubscribers(bus, partyRepo)
 	partysub.RegisterAccountJoinedOrgSubscriber(bus, partyFac, acctFacade)
+	subjectsub.RegisterProjectionSubscribers(bus, subjectRepo)
+	rentalsub.RegisterProjectionSubscribers(bus, rentalRepo)
 
 	// ── Build HTTP Routes ──────────────────────────────────────────────
 	mux := http.NewServeMux()

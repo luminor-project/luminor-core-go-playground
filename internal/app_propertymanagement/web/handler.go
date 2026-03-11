@@ -27,7 +27,7 @@ type partyLister interface {
 }
 
 type subjectLister interface {
-	ListSubjectsByOrg(ctx context.Context, orgID string) ([]subjectfacade.SubjectInfoDTO, error)
+	ListSubjectsByOrgAndKind(ctx context.Context, orgID string, kind subjectfacade.SubjectKind) ([]subjectfacade.SubjectInfoDTO, error)
 }
 
 type rentalLister interface {
@@ -73,7 +73,7 @@ func (h *Handler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	properties, _ := h.subjects.ListSubjectsByOrg(r.Context(), orgID)
+	properties, _ := h.subjects.ListSubjectsByOrgAndKind(r.Context(), orgID, subjectfacade.SubjectKindDwelling)
 	tenants, _ := h.parties.ListPartiesByOrgAndKind(r.Context(), orgID, partyfacade.PartyKindTenant)
 	rentals, _ := h.rentals.ListRentalsByOrg(r.Context(), orgID)
 

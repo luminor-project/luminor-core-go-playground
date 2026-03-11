@@ -3,36 +3,71 @@ package facade
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 
+	"github.com/google/uuid"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventstore"
 	"github.com/luminor-project/luminor-core-go-playground/internal/subject/domain"
 )
 
-type subjectService interface {
-	CreateSubject(ctx context.Context, name, detail, orgID, createdByAccountID string) (domain.Subject, error)
+type subjectReader interface {
 	FindByID(ctx context.Context, id string) (domain.Subject, error)
 	FindByIDs(ctx context.Context, ids []string) ([]domain.Subject, error)
 	FindByOrganizationID(ctx context.Context, orgID string) ([]domain.Subject, error)
+	FindByOrgAndKind(ctx context.Context, orgID string, kind domain.SubjectKind) ([]domain.Subject, error)
 }
 
-// Compile-time interface assertion.
 var _ interface {
 	GetSubjectInfo(ctx context.Context, subjectID string) (SubjectInfoDTO, error)
 	CreateSubject(ctx context.Context, dto CreateSubjectDTO) (string, error)
 	ListSubjectsByOrg(ctx context.Context, orgID string) ([]SubjectInfoDTO, error)
+	ListSubjectsByOrgAndKind(ctx context.Context, orgID string, kind SubjectKind) ([]SubjectInfoDTO, error)
 	GetSubjectsByIDs(ctx context.Context, ids []string) ([]SubjectInfoDTO, error)
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
-	service subjectService
+	store     eventstore.Store
+	bus       *eventbus.Bus
+	clock     domain.Clock
+	readModel subjectReader
 }
 
-// New creates a new subject facade.
-func New(service subjectService) *facadeImpl {
-	return &facadeImpl{service: service}
+func New(store eventstore.Store, bus *eventbus.Bus, clock domain.Clock, readModel subjectReader) *facadeImpl {
+	return &facadeImpl{store: store, bus: bus, clock: clock, readModel: readModel}
+}
+
+func (f *facadeImpl) CreateSubject(ctx context.Context, dto CreateSubjectDTO) (string, error) {
+	subjectID := uuid.New().String()
+	streamID := "subject-" + subjectID
+
+	s := domain.NewSubject(f.clock)
+	domainEvents, err := s.RegisterSubject(domain.RegisterSubjectCmd{
+		SubjectID:          subjectID,
+		SubjectKind:        domain.SubjectKind(dto.SubjectKind),
+		Name:               dto.Name,
+		Detail:             dto.Detail,
+		OrgID:              dto.OwningOrgID,
+		CreatedByAccountID: dto.CreatedByAccountID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("register subject: %w", err)
+	}
+
+	uncommitted := toUncommitted(domainEvents)
+	stored, err := f.store.Append(ctx, streamID, 0, uncommitted)
+	if err != nil {
+		return "", fmt.Errorf("append events: %w", err)
+	}
+
+	f.publishAll(ctx, stored)
+	return subjectID, nil
 }
 
 func (f *facadeImpl) GetSubjectInfo(ctx context.Context, subjectID string) (SubjectInfoDTO, error) {
-	s, err := f.service.FindByID(ctx, subjectID)
+	s, err := f.readModel.FindByID(ctx, subjectID)
 	if err != nil {
 		if errors.Is(err, domain.ErrSubjectNotFound) {
 			return SubjectInfoDTO{}, ErrSubjectNotFound
@@ -42,16 +77,16 @@ func (f *facadeImpl) GetSubjectInfo(ctx context.Context, subjectID string) (Subj
 	return toDTO(s), nil
 }
 
-func (f *facadeImpl) CreateSubject(ctx context.Context, dto CreateSubjectDTO) (string, error) {
-	s, err := f.service.CreateSubject(ctx, dto.Name, dto.Detail, dto.OwningOrgID, dto.CreatedByAccountID)
+func (f *facadeImpl) ListSubjectsByOrg(ctx context.Context, orgID string) ([]SubjectInfoDTO, error) {
+	subjects, err := f.readModel.FindByOrganizationID(ctx, orgID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return s.ID, nil
+	return toDTOs(subjects), nil
 }
 
-func (f *facadeImpl) ListSubjectsByOrg(ctx context.Context, orgID string) ([]SubjectInfoDTO, error) {
-	subjects, err := f.service.FindByOrganizationID(ctx, orgID)
+func (f *facadeImpl) ListSubjectsByOrgAndKind(ctx context.Context, orgID string, kind SubjectKind) ([]SubjectInfoDTO, error) {
+	subjects, err := f.readModel.FindByOrgAndKind(ctx, orgID, domain.SubjectKind(kind))
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +94,7 @@ func (f *facadeImpl) ListSubjectsByOrg(ctx context.Context, orgID string) ([]Sub
 }
 
 func (f *facadeImpl) GetSubjectsByIDs(ctx context.Context, ids []string) ([]SubjectInfoDTO, error) {
-	subjects, err := f.service.FindByIDs(ctx, ids)
+	subjects, err := f.readModel.FindByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +103,10 @@ func (f *facadeImpl) GetSubjectsByIDs(ctx context.Context, ids []string) ([]Subj
 
 func toDTO(s domain.Subject) SubjectInfoDTO {
 	return SubjectInfoDTO{
-		ID:     s.ID,
-		Name:   s.Name,
-		Detail: s.Detail,
+		ID:          s.ID,
+		SubjectKind: SubjectKind(s.SubjectKind),
+		Name:        s.Name,
+		Detail:      s.Detail,
 	}
 }
 
@@ -80,4 +116,44 @@ func toDTOs(subjects []domain.Subject) []SubjectInfoDTO {
 		result[i] = toDTO(s)
 	}
 	return result
+}
+
+func toUncommitted(domainEvents []domain.DomainEvent) []eventstore.UncommittedEvent {
+	uncommitted := make([]eventstore.UncommittedEvent, len(domainEvents))
+	for i, de := range domainEvents {
+		uncommitted[i] = eventstore.UncommittedEvent{
+			EventType: de.EventType,
+			Payload:   de.Payload,
+		}
+	}
+	return uncommitted
+}
+
+func (f *facadeImpl) publishAll(ctx context.Context, stored []eventstore.StoredEvent) {
+	for _, se := range stored {
+		payload, err := domain.DeserializeEvent(se.EventType, se.Payload)
+		if err != nil {
+			slog.Error("failed to deserialize event for publishing", "event_type", se.EventType, "error", err)
+			continue
+		}
+
+		var publishErr error
+		switch se.EventType {
+		case domain.EventSubjectRegistered:
+			e := payload.(domain.SubjectRegistered)
+			publishErr = eventbus.Publish(ctx, f.bus, SubjectRegisteredEvent{
+				SubjectID:          e.SubjectID,
+				SubjectKind:        SubjectKind(e.SubjectKind),
+				Name:               e.Name,
+				Detail:             e.Detail,
+				OrgID:              e.OrgID,
+				CreatedByAccountID: e.CreatedByAccountID,
+				RegisteredAt:       e.RegisteredAt,
+			})
+		}
+
+		if publishErr != nil {
+			slog.Error("failed to publish event", "event_type", se.EventType, "error", publishErr)
+		}
+	}
 }
