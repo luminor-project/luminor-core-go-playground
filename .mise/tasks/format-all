@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run all formatters (gofmt + prettier)"
+set -euo pipefail
+
+mise run gofmt
+mise run format-other

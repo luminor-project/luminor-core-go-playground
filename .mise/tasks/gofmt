@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run gofmt -w on all Go files"
+set -euo pipefail
+
+mise run in-app-container gofmt -w .

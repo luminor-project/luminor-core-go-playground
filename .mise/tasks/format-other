@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run prettier on frontend, docs, and config files"
+set -euo pipefail
+
+mise run in-app-container npm ci --silent
+mise run in-app-container npm run format:write
