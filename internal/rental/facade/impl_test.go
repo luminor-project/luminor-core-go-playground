@@ -52,16 +52,31 @@ func (s *fakeStore) LoadStream(_ context.Context, streamID string) ([]eventstore
 	return s.streams[streamID], nil
 }
 
-// fakeReader is an in-memory read model for testing.
-type fakeReader struct {
+// fakeChecker implements domain.DuplicateChecker for testing.
+type fakeChecker struct {
 	rentals map[string]domain.Rental
 }
 
-func newFakeReader() *fakeReader {
-	return &fakeReader{rentals: make(map[string]domain.Rental)}
+func (c *fakeChecker) ExistsBySubjectAndTenant(_ context.Context, subjectID, tenantPartyID string) (bool, error) {
+	for _, rental := range c.rentals {
+		if rental.SubjectID == subjectID && rental.TenantPartyID == tenantPartyID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
-func (r *fakeReader) FindByID(_ context.Context, id string) (domain.Rental, error) {
+// fakeQueryModel is an in-memory read model for testing query methods.
+type fakeQueryModel struct {
+	rentals map[string]domain.Rental
+}
+
+func newFakes() (*fakeChecker, *fakeQueryModel) {
+	rentals := make(map[string]domain.Rental)
+	return &fakeChecker{rentals: rentals}, &fakeQueryModel{rentals: rentals}
+}
+
+func (r *fakeQueryModel) FindByID(_ context.Context, id string) (domain.Rental, error) {
 	rental, ok := r.rentals[id]
 	if !ok {
 		return domain.Rental{}, domain.ErrRentalNotFound
@@ -69,7 +84,7 @@ func (r *fakeReader) FindByID(_ context.Context, id string) (domain.Rental, erro
 	return rental, nil
 }
 
-func (r *fakeReader) FindBySubjectID(_ context.Context, subjectID string) ([]domain.Rental, error) {
+func (r *fakeQueryModel) FindBySubjectID(_ context.Context, subjectID string) ([]domain.Rental, error) {
 	var result []domain.Rental
 	for _, rental := range r.rentals {
 		if rental.SubjectID == subjectID {
@@ -79,7 +94,7 @@ func (r *fakeReader) FindBySubjectID(_ context.Context, subjectID string) ([]dom
 	return result, nil
 }
 
-func (r *fakeReader) FindByTenantPartyID(_ context.Context, tenantPartyID string) ([]domain.Rental, error) {
+func (r *fakeQueryModel) FindByTenantPartyID(_ context.Context, tenantPartyID string) ([]domain.Rental, error) {
 	var result []domain.Rental
 	for _, rental := range r.rentals {
 		if rental.TenantPartyID == tenantPartyID {
@@ -89,7 +104,7 @@ func (r *fakeReader) FindByTenantPartyID(_ context.Context, tenantPartyID string
 	return result, nil
 }
 
-func (r *fakeReader) FindByOrgID(_ context.Context, orgID string) ([]domain.Rental, error) {
+func (r *fakeQueryModel) FindByOrgID(_ context.Context, orgID string) ([]domain.Rental, error) {
 	var result []domain.Rental
 	for _, rental := range r.rentals {
 		if rental.OrgID == orgID {
@@ -99,23 +114,14 @@ func (r *fakeReader) FindByOrgID(_ context.Context, orgID string) ([]domain.Rent
 	return result, nil
 }
 
-func (r *fakeReader) ExistsBySubjectAndTenant(_ context.Context, subjectID, tenantPartyID string) (bool, error) {
-	for _, rental := range r.rentals {
-		if rental.SubjectID == subjectID && rental.TenantPartyID == tenantPartyID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
 func TestCreateRental_Success(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
-	fac := facade.New(store, bus, testClock, reader)
+	checker, queryModel := newFakes()
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	id, err := fac.CreateRental(context.Background(), facade.CreateRentalDTO{
 		SubjectID:          "subject-1",
@@ -145,17 +151,17 @@ func TestCreateRental_Duplicate(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
+	checker, queryModel := newFakes()
 
-	// Pre-populate the read model with an existing rental.
-	reader.rentals["existing"] = domain.Rental{
+	// Pre-populate with an existing rental (shared backing map).
+	checker.rentals["existing"] = domain.Rental{
 		ID:            "existing",
 		SubjectID:     "s-1",
 		TenantPartyID: "p-1",
 		OrgID:         "org-1",
 	}
 
-	fac := facade.New(store, bus, testClock, reader)
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	_, err := fac.CreateRental(context.Background(), facade.CreateRentalDTO{
 		SubjectID:          "s-1",
@@ -172,10 +178,10 @@ func TestListRentalsByOrg(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
-	reader.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
+	checker, queryModel := newFakes()
+	queryModel.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
 
-	fac := facade.New(store, bus, testClock, reader)
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	rentals, err := fac.ListRentalsByOrg(context.Background(), "org-1")
 	if err != nil {
@@ -190,10 +196,10 @@ func TestListRentalsByTenant(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
-	reader.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
+	checker, queryModel := newFakes()
+	queryModel.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
 
-	fac := facade.New(store, bus, testClock, reader)
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	rentals, err := fac.ListRentalsByTenant(context.Background(), "p-1")
 	if err != nil {
@@ -208,10 +214,10 @@ func TestListRentalsBySubject(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
-	reader.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
+	checker, queryModel := newFakes()
+	queryModel.rentals["r-1"] = domain.Rental{ID: "r-1", SubjectID: "s-1", TenantPartyID: "p-1", OrgID: "org-1"}
 
-	fac := facade.New(store, bus, testClock, reader)
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	rentals, err := fac.ListRentalsBySubject(context.Background(), "s-1")
 	if err != nil {
@@ -226,8 +232,8 @@ func TestCreateRental_PublishesEvent(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
 	bus := eventbus.New()
-	reader := newFakeReader()
-	fac := facade.New(store, bus, testClock, reader)
+	checker, queryModel := newFakes()
+	fac := facade.New(store, bus, testClock, checker, queryModel)
 
 	var received facade.RentalEstablishedEvent
 	eventbus.Subscribe(bus, func(_ context.Context, e facade.RentalEstablishedEvent) error {

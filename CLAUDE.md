@@ -62,9 +62,11 @@ Read the docs before making architectural decisions. Each book answers different
 
 Business verticals listed in `eventSourcedVerticals` in `tools/archtest/policy.go` (currently: workitem, party, subject, rental) **must** use event sourcing + CQRS. This is enforced by archtest. Concretely:
 
-- **Write path**: Facade receives commands, delegates to domain aggregate, appends domain events to the event store (`platform/eventstore`), then publishes facade-level events via `eventbus`. Never write directly to projection tables from the facade.
+- **Write path**: Facade receives commands, delegates to domain service or aggregate, appends domain events to the event store (`platform/eventstore`), then publishes facade-level events via `eventbus`. Never write directly to projection tables from the facade.
 - **Read path**: Projection subscribers (`subscriber/` packages) listen for facade events and populate read-model tables via `UpsertProjection`. Queries read from these projection tables.
 - **Domain aggregate**: Must have `Apply()` for reconstitution, command methods returning `[]DomainEvent`, and a `DeserializeEvent()` function for replaying events from the store.
+- **Domain services**: Cross-aggregate invariants (like duplicate checks) must be expressed as domain service functions with injected interfaces (e.g. `DuplicateChecker`), not as inline checks in the facade. The domain package defines narrow interfaces for the checks it needs; the facade injects the read model as the implementation.
+- **Facade purity**: Event-sourced facades are pure wiring — generate ID → delegate to domain → save → publish. They must not make business decisions. The archtest enforces that facade-local interfaces do not contain existence-check methods (`Exists*`, `Has*`, `Check*`, `IsDuplicate*`).
 - **Do NOT** implement these verticals as CRUD (direct SQL insert/update from facade). The archtest will catch missing eventstore imports and missing DeserializeEvent.
 
 ## Testing Conventions

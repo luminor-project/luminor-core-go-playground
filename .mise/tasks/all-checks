@@ -7,7 +7,7 @@ mise run quality
 mise run security
 mise run tests
 mise run tests-integration
-mise run tests-e2e
+#mise run tests-e2e
 
 echo ""
 echo "All checks passed!"

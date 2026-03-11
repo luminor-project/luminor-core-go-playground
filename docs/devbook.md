@@ -44,7 +44,12 @@ All mise tasks use `mise run in-app-container` under the hood, which runs comman
 ## Adding a New Vertical
 
 1. Create directory structure: `internal/myvertical/{domain,facade,infra,web/templates,subscriber}`
-2. Define domain entities and service in `domain/`
+2. Define domain entities, aggregates, and domain services (for cross-aggregate invariants) in `domain/`
+    - `domain/myentity.go` — aggregate struct, command methods, Apply()
+    - `domain/events.go` — domain event types and constants
+    - `domain/repository.go` — read model interface (if CQRS)
+    - `domain/service.go` — domain service functions with injected interfaces (if cross-aggregate invariants exist)
+    - `domain/serialization.go` — DeserializeEvent factory (if event-sourced)
 3. Define facade DTOs/events in `facade/`
 4. Define cross-vertical interfaces where they are consumed (consumer package)
 5. Implement repository in `infra/`

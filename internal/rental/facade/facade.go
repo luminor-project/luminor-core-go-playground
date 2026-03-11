@@ -1,12 +1,16 @@
 package facade
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
+)
 
 // ErrRentalNotFound is returned when a rental is not found.
 var ErrRentalNotFound = fmt.Errorf("rental not found")
 
-// ErrDuplicateRental is returned when a rental already exists for the subject+tenant pair.
-var ErrDuplicateRental = fmt.Errorf("duplicate rental")
+// ErrDuplicateRental is the domain error for duplicate subject+tenant rentals.
+var ErrDuplicateRental = domain.ErrDuplicateRental
 
 // RentalInfoDTO holds rental data for cross-vertical communication.
 type RentalInfoDTO struct {

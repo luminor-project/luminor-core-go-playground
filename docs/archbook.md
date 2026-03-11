@@ -16,8 +16,9 @@ The application is organized into self-contained verticals. Each vertical owns i
 **Event-sourced:**
 
 - **workitem** — Event-sourced WorkItem aggregate (cases, timeline, notes). No repository — domain is a pure state machine reconstituted from events.
-- **party** — Party identity facade (human and AI actors). Demo data for V1.
-- **subject** — Subject info facade (properties, units). Demo data for V1.
+- **party** — Party identity aggregate (human and AI actors).
+- **subject** — Subject info aggregate (properties, units).
+- **rental** — Rental aggregate linking tenants to subjects. Domain service enforces cross-aggregate uniqueness.
 
 **Synthesis:**
 
@@ -89,6 +90,17 @@ Every CRUD facade method must justify itself by at least one of:
 4. **Semantic transformation** — changes the API shape (e.g. `FindByID` → `GetActiveOrgID` extracting one field)
 
 Pure passthroughs (e.g. `SetActiveOrganization` forwarding to the service) are tolerable when they have cross-vertical consumers or maintain the invariant that all access flows through the facade. Methods with zero callers are dead code and must be removed.
+
+#### Event-sourced facades
+
+An event-sourced facade is **pure infrastructure wiring**. Its write methods follow the Load-Execute-Save-Publish cycle and contain zero business decisions. Specifically:
+
+- **Business invariants** (validation, uniqueness checks, state machine guards) live in the domain — either in aggregate command methods or in domain service functions.
+- **The facade's write method** does only: generate ID → call domain service or aggregate → convert to uncommitted events → append to event store → publish facade events.
+- **Cross-aggregate invariant checks** (e.g. duplicate detection via `ExistsBySubjectAndTenant`) must not appear inline in facade methods. They must be expressed as domain service functions with injected interfaces.
+- **The facade's query methods** (List\*, Get\*) may use a query model interface directly — read-path operations are not business logic.
+
+The archtest enforces this structurally: facade-local interfaces in event-sourced verticals must not declare existence-check methods (`Exists*`, `Has*`, `Check*`, `IsDuplicate*`). Such methods indicate a write-path invariant that belongs in a domain interface.
 
 ## Event Bus
 
@@ -175,6 +187,38 @@ Key principles:
 - The domain package imports only `time` and `errors` — no database, no HTTP, no JSON (except in `serialization.go`)
 - `DomainEvent` is a domain-local struct (`EventType string, Payload any`) — the domain never imports the platform event store
 
+### Domain Services for Cross-Aggregate Invariants
+
+Some business rules span beyond a single aggregate instance. For example, "a property may have at most one active rental per tenant" requires checking all existing rentals — not just the current aggregate's state. These **cross-aggregate invariants** belong in the domain layer, not the facade.
+
+The pattern: define a narrow, consumer-owned interface in the domain package for the specific check needed, then write a domain service function that enforces the invariant and delegates to the aggregate:
+
+```go
+// domain/service.go — cross-aggregate invariant lives in the domain
+
+type DuplicateChecker interface {
+    ExistsBySubjectAndTenant(ctx context.Context, subjectID, tenantPartyID string) (bool, error)
+}
+
+func EstablishNewRental(ctx context.Context, checker DuplicateChecker, clock Clock, cmd EstablishRentalCmd) ([]DomainEvent, error) {
+    exists, err := checker.ExistsBySubjectAndTenant(ctx, cmd.SubjectID, cmd.TenantPartyID)
+    if err != nil { return nil, fmt.Errorf("check duplicate rental: %w", err) }
+    if exists   { return nil, ErrDuplicateRental }
+
+    r := NewRental(clock)
+    return r.EstablishRental(cmd)
+}
+```
+
+The facade injects the read model (or a narrower adapter) as the implementation. The domain never knows about databases — it depends only on the interface it defines.
+
+**When to use a domain service vs aggregate-only:**
+
+- **Single-aggregate invariant** (e.g. "can't establish twice"): aggregate command method handles it directly
+- **Cross-aggregate invariant** (e.g. "no duplicate subject+tenant rental"): domain service with an injected checker interface
+
+Reading the `domain/` package should reveal **all** business rules — both within-aggregate and across-aggregate. If a business rule is only visible in the facade, it belongs in the domain.
+
 ### Load-Execute-Save-Publish Cycle
 
 The facade orchestrates the full cycle:
@@ -182,12 +226,16 @@ The facade orchestrates the full cycle:
 ```
 1. Load:    event store → LoadStream(streamID) → []StoredEvent
 2. Replay:  for each stored event → DeserializeEvent → aggregate.Apply()
-3. Execute: aggregate.CommandMethod(cmd) → []DomainEvent (or error)
-4. Save:    DomainEvent → UncommittedEvent → event store.Append(streamID, version, events)
-5. Publish: StoredEvent → deserialize → facade event type → eventbus.Publish()
+3. Check:   domain service evaluates cross-aggregate invariants (if any)
+4. Execute: aggregate.CommandMethod(cmd) → []DomainEvent (or error)
+           (or: domain service function handles both check + execute)
+5. Save:    DomainEvent → UncommittedEvent → event store.Append(streamID, version, events)
+6. Publish: StoredEvent → deserialize → facade event type → eventbus.Publish()
 ```
 
-This cycle is identical for every command — `IntakeInboundMessage`, `RecordAssistantAction`, `ConfirmOutboundMessage`, `AddNote`, `EditNote`, `DeleteNote` all follow the same five steps. Adding a new command means: define events, add Apply cases, write the command method, add the facade method (same plumbing), and extend publishAll.
+For commands that need cross-aggregate invariants, steps 3-4 are combined in a domain service function. For commands that only need single-aggregate validation, the facade calls the aggregate directly (steps 3 is skipped).
+
+This cycle is identical for every command — `IntakeInboundMessage`, `RecordAssistantAction`, `ConfirmOutboundMessage`, `AddNote`, `EditNote`, `DeleteNote` all follow the same steps. Adding a new command means: define events, add Apply cases, write the command method (and optionally a domain service), add the facade method (same plumbing), and extend publishAll.
 
 ### Projections and Read Models
 
@@ -307,6 +355,7 @@ Beyond import and type boundaries, archtest enforces several structural invarian
 - **Subpackage convention** — Verticals may only contain recognized subpackages: `domain/`, `facade/`, `infra/`, `web/`, `subscriber/`, `testharness/`. Prevents structural drift where code ends up in packages that bypass the facade boundary.
 - **Consumer-defined interfaces** — Facade packages must not export interface types (interfaces belong at the consumer site). Facade-only verticals (`party`, `subject`) are exempt since the exported interface is their public contract.
 - **No direct time.Now()** — Business logic packages (`domain/`, `facade/`, `infra/`, `subscriber/`) must not reference `time.Now`. Time is injected via a `Clock` interface for testability. Uses AST analysis to catch import aliases (`import t "time"` → `t.Now()`) and function value references (`var f = time.Now`).
+- **Facade write-path purity** — In event-sourced verticals, facade-local interfaces must not declare existence-check methods (`Exists*`, `Has*`, `Check*`, `IsDuplicate*`). Such methods indicate a cross-aggregate invariant that belongs in a domain service interface, not in the facade's query model.
 
 ### Modes
 

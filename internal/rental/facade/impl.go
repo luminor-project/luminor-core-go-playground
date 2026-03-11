@@ -12,12 +12,11 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
 )
 
-type rentalReader interface {
+type rentalQueryModel interface {
 	FindByID(ctx context.Context, id string) (domain.Rental, error)
 	FindBySubjectID(ctx context.Context, subjectID string) ([]domain.Rental, error)
 	FindByTenantPartyID(ctx context.Context, tenantPartyID string) ([]domain.Rental, error)
 	FindByOrgID(ctx context.Context, orgID string) ([]domain.Rental, error)
-	ExistsBySubjectAndTenant(ctx context.Context, subjectID, tenantPartyID string) (bool, error)
 }
 
 // Compile-time interface assertion.
@@ -29,32 +28,23 @@ var _ interface {
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
-	store     eventstore.Store
-	bus       *eventbus.Bus
-	clock     domain.Clock
-	readModel rentalReader
+	store      eventstore.Store
+	bus        *eventbus.Bus
+	clock      domain.Clock
+	checker    domain.DuplicateChecker
+	queryModel rentalQueryModel
 }
 
 // New creates a new rental facade.
-func New(store eventstore.Store, bus *eventbus.Bus, clock domain.Clock, readModel rentalReader) *facadeImpl {
-	return &facadeImpl{store: store, bus: bus, clock: clock, readModel: readModel}
+func New(store eventstore.Store, bus *eventbus.Bus, clock domain.Clock, checker domain.DuplicateChecker, queryModel rentalQueryModel) *facadeImpl {
+	return &facadeImpl{store: store, bus: bus, clock: clock, checker: checker, queryModel: queryModel}
 }
 
 func (f *facadeImpl) CreateRental(ctx context.Context, dto CreateRentalDTO) (string, error) {
-	// Check uniqueness against read model (cross-aggregate invariant).
-	exists, err := f.readModel.ExistsBySubjectAndTenant(ctx, dto.SubjectID, dto.TenantPartyID)
-	if err != nil {
-		return "", fmt.Errorf("check duplicate rental: %w", err)
-	}
-	if exists {
-		return "", ErrDuplicateRental
-	}
-
 	rentalID := uuid.New().String()
 	streamID := "rental-" + rentalID
 
-	r := domain.NewRental(f.clock)
-	domainEvents, err := r.EstablishRental(domain.EstablishRentalCmd{
+	domainEvents, err := domain.EstablishNewRental(ctx, f.checker, f.clock, domain.EstablishRentalCmd{
 		RentalID:           rentalID,
 		SubjectID:          dto.SubjectID,
 		TenantPartyID:      dto.TenantPartyID,
@@ -62,7 +52,7 @@ func (f *facadeImpl) CreateRental(ctx context.Context, dto CreateRentalDTO) (str
 		CreatedByAccountID: dto.CreatedByAccountID,
 	})
 	if err != nil {
-		return "", fmt.Errorf("establish rental: %w", err)
+		return "", err
 	}
 
 	uncommitted := toUncommitted(domainEvents)
@@ -76,7 +66,7 @@ func (f *facadeImpl) CreateRental(ctx context.Context, dto CreateRentalDTO) (str
 }
 
 func (f *facadeImpl) ListRentalsByOrg(ctx context.Context, orgID string) ([]RentalInfoDTO, error) {
-	rentals, err := f.readModel.FindByOrgID(ctx, orgID)
+	rentals, err := f.queryModel.FindByOrgID(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +74,7 @@ func (f *facadeImpl) ListRentalsByOrg(ctx context.Context, orgID string) ([]Rent
 }
 
 func (f *facadeImpl) ListRentalsByTenant(ctx context.Context, tenantPartyID string) ([]RentalInfoDTO, error) {
-	rentals, err := f.readModel.FindByTenantPartyID(ctx, tenantPartyID)
+	rentals, err := f.queryModel.FindByTenantPartyID(ctx, tenantPartyID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +82,7 @@ func (f *facadeImpl) ListRentalsByTenant(ctx context.Context, tenantPartyID stri
 }
 
 func (f *facadeImpl) ListRentalsBySubject(ctx context.Context, subjectID string) ([]RentalInfoDTO, error) {
-	rentals, err := f.readModel.FindBySubjectID(ctx, subjectID)
+	rentals, err := f.queryModel.FindBySubjectID(ctx, subjectID)
 	if err != nil {
 		return nil, err
 	}

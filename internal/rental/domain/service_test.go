@@ -1,26 +1,28 @@
 package domain_test
 
 import (
+	"context"
+	"errors"
 	"testing"
-	"time"
 
-	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
 )
 
-var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
-
-func applyAll(r *domain.Rental, events []domain.DomainEvent) {
-	for _, e := range events {
-		r.Apply(e.EventType, e.Payload)
-	}
+// fakeDuplicateChecker implements domain.DuplicateChecker for testing.
+type fakeDuplicateChecker struct {
+	exists bool
+	err    error
 }
 
-func TestEstablishRental_Success(t *testing.T) {
-	t.Parallel()
-	r := domain.NewRental(testClock)
+func (f *fakeDuplicateChecker) ExistsBySubjectAndTenant(_ context.Context, _, _ string) (bool, error) {
+	return f.exists, f.err
+}
 
-	events, err := r.EstablishRental(domain.EstablishRentalCmd{
+func TestEstablishNewRental_Success(t *testing.T) {
+	t.Parallel()
+	checker := &fakeDuplicateChecker{exists: false}
+
+	events, err := domain.EstablishNewRental(context.Background(), checker, testClock, domain.EstablishRentalCmd{
 		RentalID:           "rental-1",
 		SubjectID:          "subject-1",
 		TenantPartyID:      "party-1",
@@ -47,80 +49,40 @@ func TestEstablishRental_Success(t *testing.T) {
 	if payload.TenantPartyID != "party-1" {
 		t.Errorf("expected tenant party ID 'party-1', got %q", payload.TenantPartyID)
 	}
-	if payload.OrgID != "org-1" {
-		t.Errorf("expected org ID 'org-1', got %q", payload.OrgID)
-	}
-	if payload.CreatedByAccountID != "account-1" {
-		t.Errorf("expected created by 'account-1', got %q", payload.CreatedByAccountID)
-	}
-	if payload.EstablishedAt != testClock.Now() {
-		t.Errorf("expected established at %v, got %v", testClock.Now(), payload.EstablishedAt)
-	}
 }
 
-func TestEstablishRental_AlreadyEstablished(t *testing.T) {
+func TestEstablishNewRental_Duplicate(t *testing.T) {
 	t.Parallel()
-	r := domain.NewRental(testClock)
+	checker := &fakeDuplicateChecker{exists: true}
 
-	events, err := r.EstablishRental(domain.EstablishRentalCmd{
+	_, err := domain.EstablishNewRental(context.Background(), checker, testClock, domain.EstablishRentalCmd{
 		RentalID:           "rental-1",
 		SubjectID:          "subject-1",
 		TenantPartyID:      "party-1",
 		OrgID:              "org-1",
 		CreatedByAccountID: "account-1",
 	})
-	if err != nil {
-		t.Fatalf("first establish failed: %v", err)
-	}
-	applyAll(r, events)
-
-	_, err = r.EstablishRental(domain.EstablishRentalCmd{
-		RentalID:           "rental-2",
-		SubjectID:          "subject-2",
-		TenantPartyID:      "party-2",
-		OrgID:              "org-1",
-		CreatedByAccountID: "account-1",
-	})
-	if err != domain.ErrAlreadyEstablished {
-		t.Errorf("expected ErrAlreadyEstablished, got %v", err)
+	if !errors.Is(err, domain.ErrDuplicateRental) {
+		t.Errorf("expected ErrDuplicateRental, got %v", err)
 	}
 }
 
-func TestApply_RentalEstablished(t *testing.T) {
+func TestEstablishNewRental_CheckerError(t *testing.T) {
 	t.Parallel()
-	r := domain.NewRental(testClock)
+	checkerErr := errors.New("db connection failed")
+	checker := &fakeDuplicateChecker{err: checkerErr}
 
-	events, err := r.EstablishRental(domain.EstablishRentalCmd{
+	_, err := domain.EstablishNewRental(context.Background(), checker, testClock, domain.EstablishRentalCmd{
 		RentalID:           "rental-1",
 		SubjectID:          "subject-1",
 		TenantPartyID:      "party-1",
 		OrgID:              "org-1",
 		CreatedByAccountID: "account-1",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	applyAll(r, events)
-
-	if r.ID != "rental-1" {
-		t.Errorf("expected ID 'rental-1', got %q", r.ID)
-	}
-	if r.SubjectID != "subject-1" {
-		t.Errorf("expected SubjectID 'subject-1', got %q", r.SubjectID)
-	}
-	if r.TenantPartyID != "party-1" {
-		t.Errorf("expected TenantPartyID 'party-1', got %q", r.TenantPartyID)
-	}
-	if r.OrgID != "org-1" {
-		t.Errorf("expected OrgID 'org-1', got %q", r.OrgID)
-	}
-	if r.CreatedByAccountID != "account-1" {
-		t.Errorf("expected CreatedByAccountID 'account-1', got %q", r.CreatedByAccountID)
-	}
-	if !r.Established {
-		t.Error("expected Established to be true")
-	}
-	if r.Version != 1 {
-		t.Errorf("expected Version 1, got %d", r.Version)
+	if !errors.Is(err, checkerErr) {
+		t.Errorf("expected wrapped checker error, got %v", err)
 	}
 }

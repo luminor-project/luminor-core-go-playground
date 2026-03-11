@@ -114,7 +114,7 @@ func main() {
 	subjectRepo := subjectinfra.NewPostgresRepository(db)
 	subjectFac := subjectfacade.New(eventstore.NewPostgresStore(db), bus, clk, subjectRepo)
 	rentalRepo := rentalinfra.NewPostgresRepository(db)
-	rentalFac := rentalfacade.New(eventstore.NewPostgresStore(db), bus, clk, rentalRepo)
+	rentalFac := rentalfacade.New(eventstore.NewPostgresStore(db), bus, clk, rentalRepo, rentalRepo)
 
 	// ── Wire Event Subscribers ─────────────────────────────────────────
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)

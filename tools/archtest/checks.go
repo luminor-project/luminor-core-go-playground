@@ -580,6 +580,65 @@ func dirExportsFunc(dir, funcName string) bool {
 	return false
 }
 
+// writePathMethodPrefixes are method name prefixes that indicate cross-aggregate
+// invariant checks. These belong in domain service interfaces, not facade query models.
+var writePathMethodPrefixes = []string{"Exists", "Has", "Check", "IsDuplicate"}
+
+// checkFacadeWritePathPurity verifies that event-sourced facades do not define
+// local interfaces with existence-check methods. Such methods indicate a
+// cross-aggregate invariant that should be expressed as a domain service interface.
+//
+//nolint:cyclop // Rule checks are intentionally explicit to keep boundary policy logic straightforward.
+func checkFacadeWritePathPurity(p policy) ([]string, error) {
+	var violations []string
+	for _, vertical := range p.eventSourcedVerticals {
+		facadeDir := filepath.Join(p.rootDir, "internal", vertical, "facade")
+		if !dirExists(facadeDir) {
+			continue
+		}
+		entries, err := os.ReadDir(facadeDir)
+		if err != nil {
+			return nil, err
+		}
+		fset := token.NewFileSet()
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+				continue
+			}
+			filePath := filepath.Join(facadeDir, entry.Name())
+			f, err := parser.ParseFile(fset, filePath, nil, 0)
+			if err != nil {
+				continue
+			}
+			for _, decl := range f.Decls {
+				genDecl, ok := decl.(*ast.GenDecl)
+				if !ok || genDecl.Tok != token.TYPE {
+					continue
+				}
+				for _, spec := range genDecl.Specs {
+					ts := spec.(*ast.TypeSpec)
+					ifaceType, ok := ts.Type.(*ast.InterfaceType)
+					if !ok {
+						continue
+					}
+					for _, method := range ifaceType.Methods.List {
+						for _, name := range method.Names {
+							for _, prefix := range writePathMethodPrefixes {
+								if strings.HasPrefix(name.Name, prefix) {
+									violations = append(violations, fmt.Sprintf(
+										"%s: facade interface %s declares %s (cross-aggregate invariant checks belong in domain service interfaces, not facade query models)",
+										relPath(p.rootDir, filePath), ts.Name.Name, name.Name))
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return violations, nil
+}
+
 func relPath(root, path string) string {
 	if root == "" || root == "." {
 		return path

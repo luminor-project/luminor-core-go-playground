@@ -1,12 +1,26 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
-// Repository defines the read model interface for rentals.
-type Repository interface {
-	FindByID(ctx context.Context, id string) (Rental, error)
-	FindBySubjectID(ctx context.Context, subjectID string) ([]Rental, error)
-	FindByTenantPartyID(ctx context.Context, tenantPartyID string) ([]Rental, error)
-	FindByOrgID(ctx context.Context, orgID string) ([]Rental, error)
+// DuplicateChecker checks whether a rental already exists for a subject+tenant pair.
+type DuplicateChecker interface {
 	ExistsBySubjectAndTenant(ctx context.Context, subjectID, tenantPartyID string) (bool, error)
+}
+
+// EstablishNewRental encapsulates the full business rule for creating a rental:
+// a property may have at most one active rental per tenant.
+func EstablishNewRental(ctx context.Context, checker DuplicateChecker, clock Clock, cmd EstablishRentalCmd) ([]DomainEvent, error) {
+	exists, err := checker.ExistsBySubjectAndTenant(ctx, cmd.SubjectID, cmd.TenantPartyID)
+	if err != nil {
+		return nil, fmt.Errorf("check duplicate rental: %w", err)
+	}
+	if exists {
+		return nil, ErrDuplicateRental
+	}
+
+	r := NewRental(clock)
+	return r.EstablishRental(cmd)
 }

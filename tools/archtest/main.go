@@ -6,6 +6,8 @@ import (
 	"sort"
 )
 
+type checkFunc func(policy) ([]string, error)
+
 func main() {
 	p := defaultPolicy()
 
@@ -17,68 +19,32 @@ func main() {
 	}
 	p.allowedCrossSymbols = symbols
 
-	importViolations, err := checkImportBoundaries(p)
-	if err != nil {
-		fmt.Printf("archtest import analysis failed: %v\n", err)
-		os.Exit(1)
+	checks := []struct {
+		name string
+		fn   checkFunc
+	}{
+		{"import boundaries", checkImportBoundaries},
+		{"type boundaries", checkTypeBoundaries},
+		{"domain purity", checkDomainPurity},
+		{"facade interfaces", checkNoExportedFacadeInterfaces},
+		{"vertical subpackages", checkVerticalSubpackages},
+		{"unknown verticals", checkNoUnknownVerticals},
+		{"event store immutability", checkEventStoreImmutability},
+		{"time.Now()", checkNoDirectTimeNow},
+		{"event sourcing", checkEventSourcingRequired},
+		{"facade write-path purity", checkFacadeWritePathPurity},
 	}
 
-	typeViolations, err := checkTypeBoundaries(p)
-	if err != nil {
-		fmt.Printf("archtest type analysis failed: %v\n", err)
-		os.Exit(1)
+	var violations []string
+	for _, c := range checks {
+		vs, err := c.fn(p)
+		if err != nil {
+			fmt.Printf("archtest %s check failed: %v\n", c.name, err)
+			os.Exit(1)
+		}
+		violations = append(violations, vs...)
 	}
 
-	domainViolations, err := checkDomainPurity(p)
-	if err != nil {
-		fmt.Printf("archtest domain purity check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	facadeIfaceViolations, err := checkNoExportedFacadeInterfaces(p)
-	if err != nil {
-		fmt.Printf("archtest facade interface check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	subpkgViolations, err := checkVerticalSubpackages(p)
-	if err != nil {
-		fmt.Printf("archtest vertical subpackage check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	unknownViolations, err := checkNoUnknownVerticals(p)
-	if err != nil {
-		fmt.Printf("archtest unknown verticals check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	eventstoreViolations, err := checkEventStoreImmutability(p)
-	if err != nil {
-		fmt.Printf("archtest event store immutability check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	timeNowViolations, err := checkNoDirectTimeNow(p)
-	if err != nil {
-		fmt.Printf("archtest time.Now() check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	eventSourcingViolations, err := checkEventSourcingRequired(p)
-	if err != nil {
-		fmt.Printf("archtest event sourcing check failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	violations := append(importViolations, typeViolations...)
-	violations = append(violations, domainViolations...)
-	violations = append(violations, facadeIfaceViolations...)
-	violations = append(violations, subpkgViolations...)
-	violations = append(violations, unknownViolations...)
-	violations = append(violations, eventstoreViolations...)
-	violations = append(violations, timeNowViolations...)
-	violations = append(violations, eventSourcingViolations...)
 	sort.Strings(violations)
 	reportOnly := os.Getenv("ARCHTEST_REPORT_ONLY") == "1"
 
