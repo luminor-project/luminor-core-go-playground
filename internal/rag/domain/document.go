@@ -18,8 +18,7 @@ type Document struct {
 }
 
 // NewDocument creates a new Document with a generated ID.
-func NewDocument(title, sourceType, content string, metadata map[string]string) Document {
-	now := time.Now().UTC()
+func NewDocument(title, sourceType, content string, metadata map[string]string, now time.Time) Document {
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
@@ -46,7 +45,7 @@ type Chunk struct {
 }
 
 // NewChunk creates a new Chunk with a generated ID.
-func NewChunk(documentID string, index int, content string, tokenCount int, embedding []float32) Chunk {
+func NewChunk(documentID string, index int, content string, tokenCount int, embedding []float32, now time.Time) Chunk {
 	return Chunk{
 		ID:         uuid.New().String(),
 		DocumentID: documentID,
@@ -54,7 +53,7 @@ func NewChunk(documentID string, index int, content string, tokenCount int, embe
 		Content:    content,
 		TokenCount: tokenCount,
 		Embedding:  embedding,
-		CreatedAt:  time.Now().UTC(),
+		CreatedAt:  now,
 	}
 }
 

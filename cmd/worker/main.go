@@ -17,6 +17,7 @@ import (
 	orgfacade "github.com/luminor-project/luminor-core-go-playground/internal/organization/facade"
 	orginfra "github.com/luminor-project/luminor-core-go-playground/internal/organization/infra"
 	orgsub "github.com/luminor-project/luminor-core-go-playground/internal/organization/subscriber"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -42,14 +43,15 @@ func main() {
 
 	bus := eventbus.New()
 	outboxStore := outbox.NewPostgresStore(db)
+	clk := clock.New()
 
 	// Build verticals for event dispatch.
 	accountRepo := accountinfra.NewPostgresRepository(db)
-	accountService := accountdomain.NewAccountService(accountRepo)
+	accountService := accountdomain.NewAccountService(accountRepo, clk)
 	acctFacade := accountfacade.New(accountService, bus, outboxStore)
 
 	orgRepo := orginfra.NewPostgresRepository(db)
-	orgService := orgdomain.NewOrgService(orgRepo)
+	orgService := orgdomain.NewOrgService(orgRepo, clk)
 	oFacade := orgfacade.New(orgService, bus)
 
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)

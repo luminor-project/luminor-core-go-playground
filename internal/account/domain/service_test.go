@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
 // mockRepository is an in-memory repository for testing.
 type mockRepository struct {
@@ -78,7 +82,7 @@ func (m *mockRepository) ExecuteInTx(_ context.Context, fn func(repo domain.Repo
 func TestRegister_Success(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	account, err := svc.Register(context.Background(), "test@example.com", "password123")
 	if err != nil {
@@ -99,7 +103,7 @@ func TestRegister_Success(t *testing.T) {
 func TestRegister_DuplicateEmail(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	_, err := svc.Register(context.Background(), "test@example.com", "password123")
 	if err != nil {
@@ -115,7 +119,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 func TestRegister_NormalizesEmail(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	account, err := svc.Register(context.Background(), "  Test@Example.COM  ", "password123")
 	if err != nil {
@@ -130,7 +134,7 @@ func TestRegister_NormalizesEmail(t *testing.T) {
 func TestAuthenticate_Success(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	_, err := svc.Register(context.Background(), "test@example.com", "password123")
 	if err != nil {
@@ -150,7 +154,7 @@ func TestAuthenticate_Success(t *testing.T) {
 func TestAuthenticate_WrongPassword(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	_, err := svc.Register(context.Background(), "test@example.com", "password123")
 	if err != nil {
@@ -166,7 +170,7 @@ func TestAuthenticate_WrongPassword(t *testing.T) {
 func TestAuthenticate_NonexistentUser(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	_, err := svc.Authenticate(context.Background(), "nonexistent@example.com", "password123")
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
@@ -177,7 +181,7 @@ func TestAuthenticate_NonexistentUser(t *testing.T) {
 func TestSetPassword(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	account, _ := svc.Register(context.Background(), "test@example.com", "old_password")
 
@@ -202,7 +206,7 @@ func TestSetPassword(t *testing.T) {
 func TestRegister_PasswordTooShort(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	_, err := svc.Register(context.Background(), "test@example.com", "short")
 	if !errors.Is(err, domain.ErrPasswordTooShort) {
@@ -213,7 +217,7 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 func TestSetPassword_PasswordTooShort(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
 
@@ -226,7 +230,7 @@ func TestSetPassword_PasswordTooShort(t *testing.T) {
 func TestSetActiveOrganization(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewAccountService(repo).WithBcryptCost(bcrypt.MinCost)
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
 
 	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
 

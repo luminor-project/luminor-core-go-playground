@@ -250,6 +250,7 @@ func checkDomainPurity(p policy) ([]string, error) {
 	return violations, nil
 }
 
+//nolint:cyclop // Rule checks are intentionally explicit to keep boundary policy logic straightforward.
 func checkNoExportedFacadeInterfaces(p policy) ([]string, error) {
 	facadeOnly := make(map[string]bool)
 	for _, v := range p.facadeOnlyVerticals {
@@ -374,7 +375,7 @@ func checkEventStoreImmutability(p policy) ([]string, error) {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		content, err := os.ReadFile(path)
+		content, err := os.ReadFile(path) //nolint:gosec // path is constructed from trusted rootDir, not user input
 		if err != nil {
 			return nil
 		}
@@ -395,6 +396,50 @@ func checkEventStoreImmutability(p policy) ([]string, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	return violations, nil
+}
+
+func checkNoDirectTimeNow(p policy) ([]string, error) {
+	businessDirs := []string{"domain", "facade", "subscriber"}
+	var violations []string
+	for _, vertical := range p.verticals {
+		for _, subpkg := range businessDirs {
+			dir := filepath.Join(p.rootDir, "internal", vertical, subpkg)
+			err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					if os.IsNotExist(err) {
+						return filepath.SkipDir
+					}
+					return err
+				}
+				if info.IsDir() || !strings.HasSuffix(path, ".go") {
+					return nil
+				}
+				if strings.HasSuffix(path, "_test.go") {
+					return nil
+				}
+				content, err := os.ReadFile(path) //nolint:gosec // path is constructed from trusted rootDir, not user input
+				if err != nil {
+					return nil
+				}
+				for i, line := range strings.Split(string(content), "\n") {
+					trimmed := strings.TrimSpace(line)
+					if strings.HasPrefix(trimmed, "//") {
+						continue
+					}
+					if strings.Contains(line, "time.Now()") {
+						violations = append(violations, fmt.Sprintf(
+							"%s:%d calls time.Now() directly (inject a Clock instead)",
+							relPath(p.rootDir, path), i+1))
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return violations, nil
 }

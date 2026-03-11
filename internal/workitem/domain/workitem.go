@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+// Clock provides the current time.
+type Clock interface {
+	Now() time.Time
+}
+
 var (
 	ErrAlreadyCreated     = errors.New("work item already created")
 	ErrNotCreated         = errors.New("work item not yet created")
@@ -29,6 +34,12 @@ type WorkItem struct {
 	Confirmed          bool
 	TimelineEntryCount int
 	NoteIDs            map[string]bool // noteID → deleted?
+	clock              Clock
+}
+
+// NewWorkItem creates a WorkItem with the given clock.
+func NewWorkItem(clock Clock) *WorkItem {
+	return &WorkItem{clock: clock}
 }
 
 // Apply reconstitutes state from a single event payload.
@@ -104,7 +115,7 @@ func (w *WorkItem) IntakeInboundMessage(cmd IntakeCmd) ([]DomainEvent, error) {
 		return nil, ErrAlreadyCreated
 	}
 
-	now := time.Now()
+	now := w.clock.Now()
 
 	events := []DomainEvent{
 		{EventType: EventWorkItemCreated, Payload: WorkItemCreated{
@@ -167,7 +178,7 @@ func (w *WorkItem) RecordAssistantAction(cmd AssistantActionCmd) ([]DomainEvent,
 		return nil, ErrInvalidActionKind
 	}
 
-	now := time.Now()
+	now := w.clock.Now()
 
 	events := []DomainEvent{
 		{EventType: EventAssistantActionRecorded, Payload: AssistantActionRecorded{
@@ -213,7 +224,7 @@ func (w *WorkItem) ConfirmOutboundMessage(cmd ConfirmCmd) ([]DomainEvent, error)
 		return nil, ErrNoPendingDraft
 	}
 
-	now := time.Now()
+	now := w.clock.Now()
 
 	events := []DomainEvent{
 		{EventType: EventOutboundMessageRecorded, Payload: OutboundMessageRecorded{
@@ -257,7 +268,7 @@ func (w *WorkItem) AddNote(cmd AddNoteCmd) ([]DomainEvent, error) {
 			EntryIndex: cmd.EntryIndex,
 			AuthorID:   cmd.AuthorID,
 			Body:       cmd.Body,
-			CreatedAt:  time.Now(),
+			CreatedAt:  w.clock.Now(),
 		}},
 	}, nil
 }
@@ -287,7 +298,7 @@ func (w *WorkItem) EditNote(cmd EditNoteCmd) ([]DomainEvent, error) {
 			WorkItemID: cmd.WorkItemID,
 			NoteID:     cmd.NoteID,
 			Body:       cmd.Body,
-			EditedAt:   time.Now(),
+			EditedAt:   w.clock.Now(),
 		}},
 	}, nil
 }
@@ -315,7 +326,7 @@ func (w *WorkItem) DeleteNote(cmd DeleteNoteCmd) ([]DomainEvent, error) {
 		{EventType: EventNoteDeletedFromTimelineEntry, Payload: NoteDeletedFromTimelineEntry{
 			WorkItemID: cmd.WorkItemID,
 			NoteID:     cmd.NoteID,
-			DeletedAt:  time.Now(),
+			DeletedAt:  w.clock.Now(),
 		}},
 	}, nil
 }

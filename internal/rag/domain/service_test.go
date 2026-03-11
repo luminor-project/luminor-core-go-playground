@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 // --- Mock Embedder ---
@@ -69,10 +70,18 @@ func (m *mockRepository) ExecuteInTx(_ context.Context, fn func(repo Repository)
 	return fn(m)
 }
 
+// --- Mock Clock ---
+
+type mockClock struct{ t time.Time }
+
+func (c mockClock) Now() time.Time { return c.t }
+
+var testClock = mockClock{t: time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)}
+
 // --- Tests ---
 
 func TestIndexDocument_EmptyContent(t *testing.T) {
-	svc := NewRAGService(&mockRepository{}, &mockEmbedder{}, &mockGenerator{}, "model", "model")
+	svc := NewRAGService(&mockRepository{}, &mockEmbedder{}, &mockGenerator{}, "model", "model", testClock)
 
 	_, err := svc.IndexDocument(context.Background(), "title", "text", "", nil)
 	if !errors.Is(err, ErrEmptyContent) {
@@ -96,7 +105,7 @@ func TestIndexDocument_Success(t *testing.T) {
 	}
 
 	embedder := &mockEmbedder{embedding: make([]float32, 768)}
-	svc := NewRAGService(repo, embedder, &mockGenerator{}, "nomic-embed-text", "llama3")
+	svc := NewRAGService(repo, embedder, &mockGenerator{}, "nomic-embed-text", "llama3", testClock)
 
 	doc, err := svc.IndexDocument(context.Background(), "Test Doc", "text", "Hello world from the test document.", nil)
 	if err != nil {
@@ -117,7 +126,7 @@ func TestIndexDocument_Success(t *testing.T) {
 func TestIndexDocument_EmbedError(t *testing.T) {
 	repo := &mockRepository{}
 	embedder := &mockEmbedder{err: errors.New("ollama down")}
-	svc := NewRAGService(repo, embedder, &mockGenerator{}, "model", "model")
+	svc := NewRAGService(repo, embedder, &mockGenerator{}, "model", "model", testClock)
 
 	_, err := svc.IndexDocument(context.Background(), "title", "text", "some content here", nil)
 	if err == nil {
@@ -126,7 +135,7 @@ func TestIndexDocument_EmbedError(t *testing.T) {
 }
 
 func TestSearch_EmptyQuery(t *testing.T) {
-	svc := NewRAGService(&mockRepository{}, &mockEmbedder{}, &mockGenerator{}, "model", "model")
+	svc := NewRAGService(&mockRepository{}, &mockEmbedder{}, &mockGenerator{}, "model", "model", testClock)
 
 	_, err := svc.Search(context.Background(), "", 5, 0.3)
 	if !errors.Is(err, ErrEmptyQuery) {
@@ -145,7 +154,7 @@ func TestSearch_Success(t *testing.T) {
 		},
 	}
 	embedder := &mockEmbedder{embedding: make([]float32, 768)}
-	svc := NewRAGService(repo, embedder, &mockGenerator{}, "model", "model")
+	svc := NewRAGService(repo, embedder, &mockGenerator{}, "model", "model", testClock)
 
 	results, err := svc.Search(context.Background(), "test query", 5, 0.3)
 	if err != nil {
@@ -164,7 +173,7 @@ func TestChat_Success(t *testing.T) {
 	}
 	embedder := &mockEmbedder{embedding: make([]float32, 768)}
 	generator := &mockGenerator{response: "Here is the answer based on the context."}
-	svc := NewRAGService(repo, embedder, generator, "model", "model")
+	svc := NewRAGService(repo, embedder, generator, "model", "model", testClock)
 
 	answer, sources, err := svc.Chat(context.Background(), "What is this about?", 5, 0.3)
 	if err != nil {

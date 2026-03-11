@@ -49,6 +49,7 @@ import (
 
 	// Platform
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	appCSRF "github.com/luminor-project/luminor-core-go-playground/internal/platform/csrf"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
@@ -103,21 +104,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	clk := clock.New()
+
 	// ── Build Account Vertical ──────────────────────────────────────────
 	accountRepo := accountinfra.NewPostgresRepository(db)
-	accountService := accountdomain.NewAccountService(accountRepo)
+	accountService := accountdomain.NewAccountService(accountRepo, clk)
 	acctFacade := accountfacade.New(accountService, bus, outboxStore)
 
 	// ── Build Organization Vertical ─────────────────────────────────────
 	orgRepo := orginfra.NewPostgresRepository(db)
-	orgService := orgdomain.NewOrgService(orgRepo)
+	orgService := orgdomain.NewOrgService(orgRepo, clk)
 	oFacade := orgfacade.New(orgService, bus)
 
 	// ── Build RAG Vertical ─────────────────────────────────────────────
 	ollamaClient := ollama.NewClient(cfg.LocalInferenceURL)
 	ollamaAdapter := &ollamaChatAdapter{client: ollamaClient}
 	ragRepo := raginfra.NewPostgresRepository(ragDB)
-	ragService := ragdomain.NewRAGService(ragRepo, ollamaClient, ollamaAdapter, cfg.EmbedModel, cfg.ChatModel)
+	ragService := ragdomain.NewRAGService(ragRepo, ollamaClient, ollamaAdapter, cfg.EmbedModel, cfg.ChatModel, clk)
 	rFacade := ragfacade.New(ragService, bus)
 
 	// ── Wire Event Subscribers ──────────────────────────────────────────
@@ -133,7 +136,7 @@ func main() {
 	ragweb.RegisterRoutes(mux, rFacade)
 
 	// ── Wire UC-01 Casehandling (event store, workitem, projections, routes)
-	wireCasehandling(db, bus, mux)
+	wireCasehandling(db, bus, mux, clk)
 
 	// ── Compose Middleware Stack ────────────────────────────────────────
 	var handler http.Handler = mux
@@ -222,12 +225,12 @@ func (a *ollamaChatAdapter) Chat(ctx context.Context, model string, messages []r
 
 // wireCasehandling builds the UC-01 verticals: event store,
 // party/subject facades, workitem, projection subscribers, and routes.
-func wireCasehandling(db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux) {
+func wireCasehandling(db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux, clk clock.RealClock) {
 	evStore := eventstore.NewPostgresStore(db)
 
 	partyFac := partyfacade.NewDemoPartyFacade()
 	subjectFac := subjectfacade.NewDemoSubjectFacade()
-	wiFacade := workitemfacade.New(evStore, bus)
+	wiFacade := workitemfacade.New(evStore, bus, clk)
 	dashboardStore := caseinfra.NewDashboardStore(db)
 
 	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)

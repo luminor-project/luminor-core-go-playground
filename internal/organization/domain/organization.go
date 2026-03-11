@@ -16,12 +16,12 @@ type Organization struct {
 }
 
 // NewOrganization creates a new organization.
-func NewOrganization(owningUsersID, name string) Organization {
+func NewOrganization(owningUsersID, name string, now time.Time) Organization {
 	return Organization{
 		ID:            uuid.New().String(),
 		OwningUsersID: owningUsersID,
 		Name:          truncate(strings.TrimSpace(name), 256),
-		CreatedAt:     time.Now(),
+		CreatedAt:     now,
 	}
 }
 
@@ -36,14 +36,14 @@ type Group struct {
 }
 
 // NewGroup creates a new group.
-func NewGroup(orgID, name string, accessRights []AccessRight, isDefault bool) Group {
+func NewGroup(orgID, name string, accessRights []AccessRight, isDefault bool, now time.Time) Group {
 	return Group{
 		ID:                     uuid.New().String(),
 		OrganizationID:         orgID,
 		Name:                   name,
 		AccessRights:           accessRights,
 		IsDefaultForNewMembers: isDefault,
-		CreatedAt:              time.Now(),
+		CreatedAt:              now,
 	}
 }
 
@@ -76,12 +76,12 @@ type Invitation struct {
 }
 
 // NewInvitation creates a new invitation.
-func NewInvitation(orgID, email string) Invitation {
+func NewInvitation(orgID, email string, now time.Time) Invitation {
 	return Invitation{
 		ID:             uuid.New().String(),
 		OrganizationID: orgID,
 		Email:          strings.ToLower(strings.TrimSpace(email)),
-		CreatedAt:      time.Now(),
+		CreatedAt:      now,
 	}
 }
 

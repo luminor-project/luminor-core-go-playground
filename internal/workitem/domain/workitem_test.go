@@ -2,9 +2,25 @@ package domain_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/workitem/domain"
 )
+
+var fixedClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
+
+// stepClock returns a new time on each call, advancing by step.
+type stepClock struct {
+	current time.Time
+	step    time.Duration
+}
+
+func (c *stepClock) Now() time.Time {
+	t := c.current
+	c.current = c.current.Add(c.step)
+	return t
+}
 
 func applyAll(w *domain.WorkItem, events []domain.DomainEvent) {
 	for _, e := range events {
@@ -14,7 +30,7 @@ func applyAll(w *domain.WorkItem, events []domain.DomainEvent) {
 
 func TestIntakeInboundMessage_ProducesExpectedEvents(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	events, err := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
@@ -48,7 +64,7 @@ func TestIntakeInboundMessage_ProducesExpectedEvents(t *testing.T) {
 
 func TestIntakeInboundMessage_AlreadyCreated(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	events, _ := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
@@ -68,7 +84,7 @@ func TestIntakeInboundMessage_AlreadyCreated(t *testing.T) {
 
 func TestRecordAssistantAction_Lookup(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	intakeEvents, _ := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
@@ -100,7 +116,7 @@ func TestRecordAssistantAction_Lookup(t *testing.T) {
 
 func TestRecordAssistantAction_Draft_ProducesStatusChange(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	intakeEvents, _ := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
@@ -144,7 +160,7 @@ func TestRecordAssistantAction_Draft_ProducesStatusChange(t *testing.T) {
 
 func TestConfirmOutboundMessage(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	// Intake
 	intakeEvents, _ := w.IntakeInboundMessage(domain.IntakeCmd{
@@ -199,7 +215,7 @@ func TestConfirmOutboundMessage(t *testing.T) {
 
 func TestConfirmOutboundMessage_NoPendingDraft(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	intakeEvents, _ := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
@@ -223,7 +239,7 @@ func TestConfirmOutboundMessage_NoPendingDraft(t *testing.T) {
 
 func TestConfirmOutboundMessage_AlreadyConfirmed(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	// Full golden path up to confirmation
 	intakeEvents, _ := w.IntakeInboundMessage(domain.IntakeCmd{
@@ -263,7 +279,7 @@ func TestConfirmOutboundMessage_AlreadyConfirmed(t *testing.T) {
 // workItemWithIntake returns a WorkItem after a successful intake (Created=true, TimelineEntryCount=1).
 func workItemWithIntake(t *testing.T) *domain.WorkItem {
 	t.Helper()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 	events, err := w.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     "wi-1",
 		SenderPartyID:  "party-anna-schmidt",
@@ -311,7 +327,7 @@ func TestAddNote(t *testing.T) {
 
 func TestAddNote_NotCreated(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 	_, err := w.AddNote(domain.AddNoteCmd{NoteID: "note-1", EntryIndex: 0})
 	if err != domain.ErrNotCreated {
 		t.Fatalf("expected ErrNotCreated, got: %v", err)
@@ -440,7 +456,7 @@ func TestDeleteNote_AlreadyDeleted(t *testing.T) {
 
 func TestGoldenPath_FinalState(t *testing.T) {
 	t.Parallel()
-	w := &domain.WorkItem{}
+	w := domain.NewWorkItem(fixedClock)
 
 	// Intake
 	events, _ := w.IntakeInboundMessage(domain.IntakeCmd{
@@ -496,5 +512,93 @@ func TestGoldenPath_FinalState(t *testing.T) {
 	}
 	if w.SubjectID != "subject-flussufer-12a" {
 		t.Errorf("expected subject ID 'subject-flussufer-12a', got %q", w.SubjectID)
+	}
+}
+
+func TestGoldenPath_EventTimestamps(t *testing.T) {
+	t.Parallel()
+
+	// Each command calls clock.Now() exactly once. A stepping clock lets us
+	// assert that (a) events within a single command share a timestamp and
+	// (b) timestamps across commands are causally ordered.
+	t0 := time.Date(2025, 6, 1, 9, 0, 0, 0, time.UTC)
+	clk := &stepClock{current: t0, step: time.Minute}
+	w := domain.NewWorkItem(clk)
+
+	// Step 0 (t0): Intake — creates 7 events, all stamped with t0.
+	intakeEvents, err := w.IntakeInboundMessage(domain.IntakeCmd{
+		WorkItemID:     "wi-1",
+		SenderPartyID:  "party-anna-schmidt",
+		SubjectID:      "subject-flussufer-12a",
+		Body:           "Anfrage Mietvertrag",
+		HandlerPartyID: "party-sarah",
+		AgentPartyID:   "party-ki-assistent",
+	})
+	if err != nil {
+		t.Fatalf("intake: %v", err)
+	}
+	applyAll(w, intakeEvents)
+
+	createdAt := intakeEvents[0].Payload.(domain.WorkItemCreated).CreatedAt
+	recordedAt := intakeEvents[5].Payload.(domain.InboundMessageRecorded).RecordedAt
+	if createdAt != t0 {
+		t.Errorf("WorkItemCreated.CreatedAt = %v, want %v", createdAt, t0)
+	}
+	if recordedAt != t0 {
+		t.Errorf("InboundMessageRecorded.RecordedAt = %v, want %v (same command → same timestamp)", recordedAt, t0)
+	}
+
+	// Step 1 (t0+1m): Lookup
+	t1 := t0.Add(time.Minute)
+	lookupEvents, err := w.RecordAssistantAction(domain.AssistantActionCmd{
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent",
+		ActionKind: domain.ActionKindLookup, Output: "Vertragsdaten",
+	})
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	applyAll(w, lookupEvents)
+
+	lookupAt := lookupEvents[0].Payload.(domain.AssistantActionRecorded).RecordedAt
+	if lookupAt != t1 {
+		t.Errorf("lookup RecordedAt = %v, want %v", lookupAt, t1)
+	}
+
+	// Step 2 (t0+2m): Draft
+	t2 := t0.Add(2 * time.Minute)
+	draftEvents, err := w.RecordAssistantAction(domain.AssistantActionCmd{
+		WorkItemID: "wi-1", ActorID: "party-ki-assistent",
+		ActionKind: domain.ActionKindDraft, Output: "Entwurf",
+		DraftStatus: domain.DraftStatusPending,
+	})
+	if err != nil {
+		t.Fatalf("draft: %v", err)
+	}
+	applyAll(w, draftEvents)
+
+	draftAt := draftEvents[0].Payload.(domain.AssistantActionRecorded).RecordedAt
+	if draftAt != t2 {
+		t.Errorf("draft RecordedAt = %v, want %v", draftAt, t2)
+	}
+
+	// Step 3 (t0+3m): Confirm
+	t3 := t0.Add(3 * time.Minute)
+	confirmEvents, err := w.ConfirmOutboundMessage(domain.ConfirmCmd{
+		WorkItemID: "wi-1", ConfirmedBy: "party-sarah", Body: "Bestätigte Antwort",
+	})
+	if err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	applyAll(w, confirmEvents)
+
+	confirmAt := confirmEvents[0].Payload.(domain.OutboundMessageRecorded).RecordedAt
+	if confirmAt != t3 {
+		t.Errorf("confirm RecordedAt = %v, want %v", confirmAt, t3)
+	}
+
+	// Verify causal ordering across the full timeline.
+	if !createdAt.Before(lookupAt) || !lookupAt.Before(draftAt) || !draftAt.Before(confirmAt) {
+		t.Errorf("timestamps not causally ordered: created=%v lookup=%v draft=%v confirm=%v",
+			createdAt, lookupAt, draftAt, confirmAt)
 	}
 }

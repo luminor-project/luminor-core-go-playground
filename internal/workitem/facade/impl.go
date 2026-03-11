@@ -25,13 +25,15 @@ var _ interface {
 type facadeImpl struct {
 	store eventstore.Store
 	bus   *eventbus.Bus
+	clock domain.Clock
 }
 
 // New creates a new workitem facade.
-func New(store eventstore.Store, bus *eventbus.Bus) *facadeImpl {
+func New(store eventstore.Store, bus *eventbus.Bus, clock domain.Clock) *facadeImpl {
 	return &facadeImpl{
 		store: store,
 		bus:   bus,
+		clock: clock,
 	}
 }
 
@@ -40,7 +42,7 @@ func (f *facadeImpl) IntakeInboundMessage(ctx context.Context, dto IntakeInbound
 	workItemID := uuid.New().String()
 	streamID := "workitem-" + workItemID
 
-	wi := &domain.WorkItem{}
+	wi := domain.NewWorkItem(f.clock)
 	domainEvents, err := wi.IntakeInboundMessage(domain.IntakeCmd{
 		WorkItemID:     workItemID,
 		SenderPartyID:  dto.SenderPartyID,
@@ -215,7 +217,7 @@ func (f *facadeImpl) loadAggregate(ctx context.Context, streamID string) (*domai
 		return nil, 0, fmt.Errorf("load stream %s: %w", streamID, err)
 	}
 
-	wi := &domain.WorkItem{}
+	wi := domain.NewWorkItem(f.clock)
 	for _, se := range storedEvents {
 		payload, err := domain.DeserializeEvent(se.EventType, se.Payload)
 		if err != nil {

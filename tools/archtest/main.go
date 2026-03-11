@@ -59,12 +59,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	timeNowViolations, err := checkNoDirectTimeNow(p)
+	if err != nil {
+		fmt.Printf("archtest time.Now() check failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	violations := append(importViolations, typeViolations...)
 	violations = append(violations, domainViolations...)
 	violations = append(violations, facadeIfaceViolations...)
 	violations = append(violations, subpkgViolations...)
 	violations = append(violations, unknownViolations...)
 	violations = append(violations, eventstoreViolations...)
+	violations = append(violations, timeNowViolations...)
 	sort.Strings(violations)
 	reportOnly := os.Getenv("ARCHTEST_REPORT_ONLY") == "1"
 

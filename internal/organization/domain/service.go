@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 var (
@@ -16,6 +17,11 @@ var (
 	ErrInvitationEmailMismatch          = errors.New("invitation email does not match authenticated account")
 	ErrCrossOrganizationGroupAssignment = errors.New("member and group must belong to the same organization")
 )
+
+// Clock provides the current time.
+type Clock interface {
+	Now() time.Time
+}
 
 // Repository defines the persistence interface for the organization vertical.
 type Repository interface {
@@ -54,29 +60,31 @@ type Repository interface {
 
 // OrgService handles core organization business logic.
 type OrgService struct {
-	repo Repository
+	repo  Repository
+	clock Clock
 }
 
 // NewOrgService creates a new OrgService.
-func NewOrgService(repo Repository) *OrgService {
-	return &OrgService{repo: repo}
+func NewOrgService(repo Repository, clock Clock) *OrgService {
+	return &OrgService{repo: repo, clock: clock}
 }
 
 // CreateOrganization creates a new organization with default groups and adds the owner as admin.
 func (s *OrgService) CreateOrganization(ctx context.Context, ownerID, name string) (Organization, error) {
-	org := NewOrganization(ownerID, name)
+	now := s.clock.Now()
+	org := NewOrganization(ownerID, name, now)
 	err := s.repo.ExecuteInTx(ctx, func(repo Repository) error {
 		if err := repo.CreateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("create organization: %w", err)
 		}
 
 		// Create default groups
-		adminsGroup := NewGroup(org.ID, "Administrators", AllAccessRights(), false)
+		adminsGroup := NewGroup(org.ID, "Administrators", AllAccessRights(), false, now)
 		if err := repo.CreateGroup(ctx, adminsGroup); err != nil {
 			return fmt.Errorf("create administrators group: %w", err)
 		}
 
-		teamGroup := NewGroup(org.ID, "Team Members", []AccessRight{}, true)
+		teamGroup := NewGroup(org.ID, "Team Members", []AccessRight{}, true, now)
 		if err := repo.CreateGroup(ctx, teamGroup); err != nil {
 			return fmt.Errorf("create team members group: %w", err)
 		}
@@ -129,7 +137,7 @@ func (s *OrgService) CreateInvitation(ctx context.Context, orgID, email string) 
 		return Invitation{}, ErrAlreadyInvited
 	}
 
-	inv := NewInvitation(orgID, email)
+	inv := NewInvitation(orgID, email, s.clock.Now())
 	if err := s.repo.CreateInvitation(ctx, inv); err != nil {
 		return Invitation{}, fmt.Errorf("create invitation: %w", err)
 	}

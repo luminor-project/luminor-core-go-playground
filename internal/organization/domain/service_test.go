@@ -5,9 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/organization/domain"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 )
+
+var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
 // mockRepository implements domain.Repository for testing.
 type mockRepository struct {
@@ -223,7 +227,7 @@ func (r *mockRepository) ExecuteInTx(_ context.Context, fn func(repo domain.Repo
 func TestCreateOrganization(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, err := svc.CreateOrganization(context.Background(), "user-1", "Test Org")
 	if err != nil {
@@ -253,7 +257,7 @@ func TestCreateOrganization(t *testing.T) {
 func TestUserHasAccessRight_Owner(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "user-1", "Test Org")
 
@@ -270,7 +274,7 @@ func TestUserHasAccessRight_Owner(t *testing.T) {
 func TestCreateInvitation(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "user-1", "Test Org")
 
@@ -287,7 +291,7 @@ func TestCreateInvitation(t *testing.T) {
 func TestCreateInvitation_Duplicate(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "user-1", "Test Org")
 
@@ -302,7 +306,7 @@ func TestCreateInvitation_Duplicate(t *testing.T) {
 func TestRenameOrganization(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "user-1", "Old Name")
 
@@ -320,7 +324,7 @@ func TestRenameOrganization(t *testing.T) {
 func TestRenameOrganizationAsActor_ForbiddenWithoutRight(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org Name")
 	_ = repo.AddMember(context.Background(), domain.OrganizationMember{AccountCoreID: "member-1", OrganizationID: org.ID})
@@ -334,7 +338,7 @@ func TestRenameOrganizationAsActor_ForbiddenWithoutRight(t *testing.T) {
 func TestAcceptInvitation_RejectsMismatchedEmail(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org Name")
 	inv, _ := svc.CreateInvitation(context.Background(), org.ID, "invited@example.com")
@@ -348,7 +352,7 @@ func TestAcceptInvitation_RejectsMismatchedEmail(t *testing.T) {
 func TestAcceptInvitation_HappyPath(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	inv, _ := svc.CreateInvitation(context.Background(), org.ID, "new@example.com")
@@ -370,7 +374,7 @@ func TestAcceptInvitation_HappyPath(t *testing.T) {
 func TestAcceptInvitation_AlreadyMember(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	inv, _ := svc.CreateInvitation(context.Background(), org.ID, "existing@example.com")
@@ -395,7 +399,7 @@ func TestAcceptInvitation_AlreadyMember(t *testing.T) {
 func TestCanAccessOrganization(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 
@@ -413,7 +417,7 @@ func TestCanAccessOrganization(t *testing.T) {
 func TestGetMemberIDs(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	_ = repo.AddMember(context.Background(), domain.OrganizationMember{AccountCoreID: "member-1", OrganizationID: org.ID})
@@ -435,7 +439,7 @@ func TestGetMemberIDs(t *testing.T) {
 func TestRemoveUserFromGroupAsActor(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	groups, _ := svc.GetGroups(context.Background(), org.ID)
@@ -464,7 +468,7 @@ func TestRemoveUserFromGroupAsActor(t *testing.T) {
 func TestRemoveUserFromGroupAsActor_Forbidden(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	groups, _ := svc.GetGroups(context.Background(), org.ID)
@@ -488,7 +492,7 @@ func TestRemoveUserFromGroupAsActor_Forbidden(t *testing.T) {
 func TestCreateInvitationAsActor(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 
@@ -504,7 +508,7 @@ func TestCreateInvitationAsActor(t *testing.T) {
 func TestCreateInvitationAsActor_Forbidden(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	org, _ := svc.CreateOrganization(context.Background(), "owner-1", "Org")
 	_ = repo.AddMember(context.Background(), domain.OrganizationMember{AccountCoreID: "member-1", OrganizationID: org.ID})
@@ -518,7 +522,7 @@ func TestCreateInvitationAsActor_Forbidden(t *testing.T) {
 func TestAddUserToGroupAsActor_RejectsCrossOrganizationMember(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()
-	svc := domain.NewOrgService(repo)
+	svc := domain.NewOrgService(repo, testClock)
 
 	orgA, _ := svc.CreateOrganization(context.Background(), "owner-a", "Org A")
 	orgB, _ := svc.CreateOrganization(context.Background(), "owner-b", "Org B")

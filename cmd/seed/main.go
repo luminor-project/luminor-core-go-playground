@@ -11,6 +11,7 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/testharness"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/agentworkload"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -42,6 +43,7 @@ func main() {
 	// Wire dependencies
 	bus := eventbus.New()
 	evStore := eventstore.NewPostgresStore(db)
+	clk := clock.New()
 
 	var agentPort agentworkload.Port
 	switch cfg.AgentWorkloadMode {
@@ -56,7 +58,7 @@ func main() {
 
 	partyFac := partyfacade.NewDemoPartyFacade()
 	subjectFac := subjectfacade.NewDemoSubjectFacade()
-	wiFacade := workitemfacade.New(evStore, bus)
+	wiFacade := workitemfacade.New(evStore, bus, clk)
 	dashboardStore := caseinfra.NewDashboardStore(db)
 	cFacade := casefacade.New(wiFacade, agentPort, subjectFac)
 

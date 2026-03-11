@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -20,6 +21,11 @@ type ValidationError struct{ Key string }
 
 func (e *ValidationError) Error() string { return e.Key }
 
+// Clock provides the current time.
+type Clock interface {
+	Now() time.Time
+}
+
 // Repository defines the persistence interface for accounts.
 type Repository interface {
 	FindByID(ctx context.Context, id string) (AccountCore, error)
@@ -35,12 +41,13 @@ type Repository interface {
 // AccountService handles core account business logic.
 type AccountService struct {
 	repo       Repository
+	clock      Clock
 	bcryptCost int
 }
 
 // NewAccountService creates a new AccountService.
-func NewAccountService(repo Repository) *AccountService {
-	return &AccountService{repo: repo, bcryptCost: bcrypt.DefaultCost}
+func NewAccountService(repo Repository, clock Clock) *AccountService {
+	return &AccountService{repo: repo, clock: clock, bcryptCost: bcrypt.DefaultCost}
 }
 
 // WithBcryptCost returns a copy of the service with the given bcrypt cost.
@@ -68,7 +75,7 @@ func (s *AccountService) Register(ctx context.Context, email, plainPassword stri
 		return AccountCore{}, fmt.Errorf("hash password: %w", err)
 	}
 
-	account := NewAccountCore(email, string(hash))
+	account := NewAccountCore(email, string(hash), s.clock.Now())
 
 	if err := s.repo.Create(ctx, account); err != nil {
 		return AccountCore{}, fmt.Errorf("create account: %w", err)

@@ -19,13 +19,13 @@ type AccountCore struct {
 }
 
 // NewAccountCore creates a new account with generated UUID and normalized email.
-func NewAccountCore(email, passwordHash string) AccountCore {
+func NewAccountCore(email, passwordHash string, now time.Time) AccountCore {
 	return AccountCore{
 		ID:           uuid.New().String(),
 		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: passwordHash,
 		Roles:        []Role{RoleUser},
-		CreatedAt:    time.Now(),
+		CreatedAt:    now,
 	}
 }
 

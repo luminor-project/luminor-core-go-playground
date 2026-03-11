@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -29,6 +30,11 @@ type Embedder interface {
 	Embed(ctx context.Context, model, text string) ([]float32, error)
 }
 
+// Clock provides the current time.
+type Clock interface {
+	Now() time.Time
+}
+
 // Generator produces chat completions.
 type Generator interface {
 	Chat(ctx context.Context, model string, messages []Message) (string, error)
@@ -47,16 +53,18 @@ type RAGService struct {
 	generator  Generator
 	embedModel string
 	chatModel  string
+	clock      Clock
 }
 
 // NewRAGService creates a new RAGService.
-func NewRAGService(repo Repository, embedder Embedder, generator Generator, embedModel, chatModel string) *RAGService {
+func NewRAGService(repo Repository, embedder Embedder, generator Generator, embedModel, chatModel string, clock Clock) *RAGService {
 	return &RAGService{
 		repo:       repo,
 		embedder:   embedder,
 		generator:  generator,
 		embedModel: embedModel,
 		chatModel:  chatModel,
+		clock:      clock,
 	}
 }
 
@@ -66,7 +74,8 @@ func (s *RAGService) IndexDocument(ctx context.Context, title, sourceType, conte
 		return Document{}, ErrEmptyContent
 	}
 
-	doc := NewDocument(title, sourceType, content, metadata)
+	now := s.clock.Now().UTC()
+	doc := NewDocument(title, sourceType, content, metadata, now)
 	texts := ChunkText(content, 500, 50)
 
 	// Embed all chunks concurrently (bounded).
@@ -91,7 +100,7 @@ func (s *RAGService) IndexDocument(ctx context.Context, title, sourceType, conte
 	// Build chunk entities.
 	chunks := make([]Chunk, len(texts))
 	for i, text := range texts {
-		chunks[i] = NewChunk(doc.ID, i, text, EstimateTokens(text), embeddings[i])
+		chunks[i] = NewChunk(doc.ID, i, text, EstimateTokens(text), embeddings[i], now)
 	}
 
 	// Store document + chunks in a single transaction.
