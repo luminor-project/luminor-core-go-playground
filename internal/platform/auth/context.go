@@ -9,9 +9,11 @@ type contextKey string
 const userContextKey contextKey = "auth_user"
 
 type User struct {
-	ID    string
-	Email string
-	Roles []string
+	ID              string
+	Email           string
+	Roles           []string
+	ActivePartyID   string
+	ActivePartyKind string
 }
 
 func WithUser(ctx context.Context, user User) context.Context {

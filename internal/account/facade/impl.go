@@ -19,6 +19,12 @@ type accountService interface {
 	FindByIDs(ctx context.Context, ids []string) ([]domain.AccountCore, error)
 	SetActiveOrganization(ctx context.Context, accountID, orgID string) error
 	SetPassword(ctx context.Context, accountID, newPlainPassword string) error
+	SetActiveParty(ctx context.Context, accountID, partyID string) error
+	LinkPartyToAccount(ctx context.Context, accountID, partyID, orgID string) error
+	GetPartyMembershipsForAccount(ctx context.Context, accountID, orgID string) ([]domain.PartyMembership, error)
+	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
+	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
+	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -32,6 +38,12 @@ var _ interface {
 	GetAccountEmailByID(ctx context.Context, accountID string) (string, error)
 	SetActiveOrganization(ctx context.Context, accountID, orgID string) error
 	SetPassword(ctx context.Context, accountID, newPassword string) error
+	SetActiveParty(ctx context.Context, accountID, partyID string) error
+	LinkPartyToAccount(ctx context.Context, accountID, partyID, orgID string) error
+	GetPartyMembershipsForAccount(ctx context.Context, accountID, orgID string) ([]PartyMembershipDTO, error)
+	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
+	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
+	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -144,6 +156,61 @@ func (f *facadeImpl) SetPassword(ctx context.Context, accountID, newPassword str
 	return f.service.SetPassword(ctx, accountID, newPassword)
 }
 
+func (f *facadeImpl) SetActiveParty(ctx context.Context, accountID, partyID string) error {
+	return f.service.SetActiveParty(ctx, accountID, partyID)
+}
+
+func (f *facadeImpl) LinkPartyToAccount(ctx context.Context, accountID, partyID, orgID string) error {
+	err := f.service.LinkPartyToAccount(ctx, accountID, partyID, orgID)
+	if err != nil {
+		if errors.Is(err, domain.ErrAlreadyLinked) {
+			return ErrAlreadyLinked
+		}
+		return err
+	}
+	return nil
+}
+
+func (f *facadeImpl) GetPartyMembershipsForAccount(ctx context.Context, accountID, orgID string) ([]PartyMembershipDTO, error) {
+	memberships, err := f.service.GetPartyMembershipsForAccount(ctx, accountID, orgID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PartyMembershipDTO, len(memberships))
+	for i, m := range memberships {
+		result[i] = PartyMembershipDTO{
+			AccountID: m.AccountID,
+			PartyID:   m.PartyID,
+			OrgID:     m.OrgID,
+			CreatedAt: m.CreatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (f *facadeImpl) GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error) {
+	return f.service.GetAccountIDsForParty(ctx, partyID)
+}
+
+func (f *facadeImpl) CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error) {
+	link, err := f.service.CreatePendingPartyLink(ctx, invitationID, partyID, orgID)
+	if err != nil {
+		return "", err
+	}
+	return link.ID, nil
+}
+
+func (f *facadeImpl) ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error {
+	err := f.service.ResolvePendingPartyLink(ctx, invitationID, accountID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPendingLinkNotFound) {
+			return ErrPendingLinkNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {
 	return AccountInfoDTO{
 		ID:                            a.ID,
@@ -151,5 +218,6 @@ func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {
 		Roles:                         a.RoleStrings(),
 		CreatedAt:                     a.CreatedAt,
 		CurrentlyActiveOrganizationID: a.CurrentlyActiveOrganizationID,
+		CurrentlyActivePartyID:        a.CurrentlyActivePartyID,
 	}
 }

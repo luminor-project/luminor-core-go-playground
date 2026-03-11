@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrEmailAlreadyTaken  = errors.New("email already taken")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrAccountNotFound    = errors.New("account not found")
-	ErrPasswordTooShort   = errors.New("password must be at least 8 characters")
+	ErrEmailAlreadyTaken   = errors.New("email already taken")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrAccountNotFound     = errors.New("account not found")
+	ErrPasswordTooShort    = errors.New("password must be at least 8 characters")
+	ErrAlreadyLinked       = errors.New("account already linked to this party")
+	ErrPendingLinkNotFound = errors.New("pending party link not found")
 )
 
 // ValidationError represents a user-facing validation failure with a translation key.
@@ -36,6 +39,17 @@ type Repository interface {
 	ExistsByID(ctx context.Context, id string) (bool, error)
 	FindByIDs(ctx context.Context, ids []string) ([]AccountCore, error)
 	ExecuteInTx(ctx context.Context, fn func(repo Repository) error) error
+
+	// Party membership methods
+	CreatePartyMembership(ctx context.Context, membership PartyMembership) error
+	FindPartyMembershipsByAccountAndOrg(ctx context.Context, accountID, orgID string) ([]PartyMembership, error)
+	ExistsPartyMembership(ctx context.Context, accountID, partyID string) (bool, error)
+	FindAccountIDsByPartyID(ctx context.Context, partyID string) ([]string, error)
+
+	// Pending party link methods
+	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
+	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
+	DeletePendingPartyLink(ctx context.Context, id string) error
 }
 
 // AccountService handles core account business logic.
@@ -147,4 +161,64 @@ func (s *AccountService) FindByEmail(ctx context.Context, email string) (Account
 // FindByIDs returns accounts by IDs.
 func (s *AccountService) FindByIDs(ctx context.Context, ids []string) ([]AccountCore, error) {
 	return s.repo.FindByIDs(ctx, ids)
+}
+
+// SetActiveParty sets the currently active party for the account.
+func (s *AccountService) SetActiveParty(ctx context.Context, accountID, partyID string) error {
+	account, err := s.repo.FindByID(ctx, accountID)
+	if err != nil {
+		return fmt.Errorf("find account: %w", err)
+	}
+
+	account.CurrentlyActivePartyID = partyID
+	return s.repo.Update(ctx, account)
+}
+
+// LinkPartyToAccount creates a membership linking an account to a party.
+func (s *AccountService) LinkPartyToAccount(ctx context.Context, accountID, partyID, orgID string) error {
+	return s.repo.CreatePartyMembership(ctx, PartyMembership{
+		AccountID: accountID,
+		PartyID:   partyID,
+		OrgID:     orgID,
+		CreatedAt: s.clock.Now(),
+	})
+}
+
+// GetPartyMembershipsForAccount returns all party memberships for an account in an org.
+func (s *AccountService) GetPartyMembershipsForAccount(ctx context.Context, accountID, orgID string) ([]PartyMembership, error) {
+	return s.repo.FindPartyMembershipsByAccountAndOrg(ctx, accountID, orgID)
+}
+
+// GetAccountIDsForParty returns all account IDs linked to a party.
+func (s *AccountService) GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error) {
+	return s.repo.FindAccountIDsByPartyID(ctx, partyID)
+}
+
+// CreatePendingPartyLink creates a deferred party link for an invitation.
+func (s *AccountService) CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (PendingPartyLink, error) {
+	link := PendingPartyLink{
+		ID:           uuid.New().String(),
+		InvitationID: invitationID,
+		PartyID:      partyID,
+		OrgID:        orgID,
+		CreatedAt:    s.clock.Now(),
+	}
+	if err := s.repo.CreatePendingPartyLink(ctx, link); err != nil {
+		return PendingPartyLink{}, fmt.Errorf("create pending party link: %w", err)
+	}
+	return link, nil
+}
+
+// ResolvePendingPartyLink resolves a pending link by linking the party to the account.
+func (s *AccountService) ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error {
+	link, err := s.repo.FindPendingPartyLinkByInvitationID(ctx, invitationID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.LinkPartyToAccount(ctx, accountID, link.PartyID, link.OrgID); err != nil {
+		return fmt.Errorf("link party to account: %w", err)
+	}
+
+	return s.repo.DeletePendingPartyLink(ctx, link.ID)
 }

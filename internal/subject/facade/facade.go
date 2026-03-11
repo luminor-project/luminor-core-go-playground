@@ -1,9 +1,6 @@
 package facade
 
-import (
-	"context"
-	"fmt"
-)
+import "fmt"
 
 // ErrSubjectNotFound is returned when a subject ID is not recognized.
 var ErrSubjectNotFound = fmt.Errorf("subject not found")
@@ -15,7 +12,10 @@ type SubjectInfoDTO struct {
 	Detail string
 }
 
-// SubjectFacade provides subject lookup operations.
-type SubjectFacade interface {
-	GetSubjectInfo(ctx context.Context, subjectID string) (SubjectInfoDTO, error)
+// CreateSubjectDTO holds data for creating a new subject.
+type CreateSubjectDTO struct {
+	Name               string
+	Detail             string
+	OwningOrgID        string
+	CreatedByAccountID string
 }

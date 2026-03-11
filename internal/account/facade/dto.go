@@ -1,6 +1,14 @@
 package facade
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrAlreadyLinked       = errors.New("account already linked to this party")
+	ErrPendingLinkNotFound = errors.New("pending party link not found")
+)
 
 // AccountInfoDTO holds account data for cross-vertical communication.
 type AccountInfoDTO struct {
@@ -9,6 +17,15 @@ type AccountInfoDTO struct {
 	Roles                         []string
 	CreatedAt                     time.Time
 	CurrentlyActiveOrganizationID string
+	CurrentlyActivePartyID        string
+}
+
+// PartyMembershipDTO holds a party membership for cross-vertical communication.
+type PartyMembershipDTO struct {
+	AccountID string
+	PartyID   string
+	OrgID     string
+	CreatedAt time.Time
 }
 
 // DisplayName returns a display-friendly name.

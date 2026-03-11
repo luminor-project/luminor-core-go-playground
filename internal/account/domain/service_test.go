@@ -15,12 +15,16 @@ var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 
 // mockRepository is an in-memory repository for testing.
 type mockRepository struct {
-	accounts map[string]domain.AccountCore
+	accounts     map[string]domain.AccountCore
+	memberships  []domain.PartyMembership
+	pendingLinks map[string]domain.PendingPartyLink // keyed by ID
 }
 
 func newMockRepo() *mockRepository {
 	return &mockRepository{
-		accounts: make(map[string]domain.AccountCore),
+		accounts:     make(map[string]domain.AccountCore),
+		memberships:  nil,
+		pendingLinks: make(map[string]domain.PendingPartyLink),
 	}
 }
 
@@ -77,6 +81,64 @@ func (m *mockRepository) FindByIDs(_ context.Context, ids []string) ([]domain.Ac
 
 func (m *mockRepository) ExecuteInTx(_ context.Context, fn func(repo domain.Repository) error) error {
 	return fn(m)
+}
+
+func (m *mockRepository) CreatePartyMembership(_ context.Context, membership domain.PartyMembership) error {
+	for _, existing := range m.memberships {
+		if existing.AccountID == membership.AccountID && existing.PartyID == membership.PartyID {
+			return domain.ErrAlreadyLinked
+		}
+	}
+	m.memberships = append(m.memberships, membership)
+	return nil
+}
+
+func (m *mockRepository) FindPartyMembershipsByAccountAndOrg(_ context.Context, accountID, orgID string) ([]domain.PartyMembership, error) {
+	var result []domain.PartyMembership
+	for _, pm := range m.memberships {
+		if pm.AccountID == accountID && pm.OrgID == orgID {
+			result = append(result, pm)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRepository) ExistsPartyMembership(_ context.Context, accountID, partyID string) (bool, error) {
+	for _, pm := range m.memberships {
+		if pm.AccountID == accountID && pm.PartyID == partyID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *mockRepository) FindAccountIDsByPartyID(_ context.Context, partyID string) ([]string, error) {
+	var result []string
+	for _, pm := range m.memberships {
+		if pm.PartyID == partyID {
+			result = append(result, pm.AccountID)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRepository) CreatePendingPartyLink(_ context.Context, link domain.PendingPartyLink) error {
+	m.pendingLinks[link.ID] = link
+	return nil
+}
+
+func (m *mockRepository) FindPendingPartyLinkByInvitationID(_ context.Context, invitationID string) (domain.PendingPartyLink, error) {
+	for _, link := range m.pendingLinks {
+		if link.InvitationID == invitationID {
+			return link, nil
+		}
+	}
+	return domain.PendingPartyLink{}, domain.ErrPendingLinkNotFound
+}
+
+func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) error {
+	delete(m.pendingLinks, id)
+	return nil
 }
 
 func TestRegister_Success(t *testing.T) {
@@ -242,5 +304,173 @@ func TestSetActiveOrganization(t *testing.T) {
 	updated, _ := svc.FindByID(context.Background(), account.ID)
 	if updated.CurrentlyActiveOrganizationID != "org-123" {
 		t.Errorf("expected active org 'org-123', got %q", updated.CurrentlyActiveOrganizationID)
+	}
+}
+
+func TestSetActiveParty_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	err := svc.SetActiveParty(context.Background(), account.ID, "party-42")
+	if err != nil {
+		t.Fatalf("set active party failed: %v", err)
+	}
+
+	updated, _ := svc.FindByID(context.Background(), account.ID)
+	if updated.CurrentlyActivePartyID != "party-42" {
+		t.Errorf("expected active party 'party-42', got %q", updated.CurrentlyActivePartyID)
+	}
+}
+
+func TestLinkPartyToAccount_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	err := svc.LinkPartyToAccount(context.Background(), account.ID, "party-1", "org-1")
+	if err != nil {
+		t.Fatalf("link party failed: %v", err)
+	}
+
+	memberships, err := svc.GetPartyMembershipsForAccount(context.Background(), account.ID, "org-1")
+	if err != nil {
+		t.Fatalf("get memberships failed: %v", err)
+	}
+	if len(memberships) != 1 {
+		t.Fatalf("expected 1 membership, got %d", len(memberships))
+	}
+	if memberships[0].PartyID != "party-1" {
+		t.Errorf("expected party 'party-1', got %q", memberships[0].PartyID)
+	}
+	if memberships[0].AccountID != account.ID {
+		t.Errorf("expected account %q, got %q", account.ID, memberships[0].AccountID)
+	}
+}
+
+func TestLinkPartyToAccount_AlreadyLinked(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	err := svc.LinkPartyToAccount(context.Background(), account.ID, "party-1", "org-1")
+	if err != nil {
+		t.Fatalf("first link failed: %v", err)
+	}
+
+	err = svc.LinkPartyToAccount(context.Background(), account.ID, "party-1", "org-1")
+	if !errors.Is(err, domain.ErrAlreadyLinked) {
+		t.Errorf("expected ErrAlreadyLinked, got %v", err)
+	}
+}
+
+func TestGetPartyMembershipsForAccount_ScopedToOrg(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	_ = svc.LinkPartyToAccount(context.Background(), account.ID, "party-1", "org-1")
+	_ = svc.LinkPartyToAccount(context.Background(), account.ID, "party-2", "org-2")
+
+	memberships, err := svc.GetPartyMembershipsForAccount(context.Background(), account.ID, "org-1")
+	if err != nil {
+		t.Fatalf("get memberships failed: %v", err)
+	}
+	if len(memberships) != 1 {
+		t.Fatalf("expected 1 membership for org-1, got %d", len(memberships))
+	}
+	if memberships[0].PartyID != "party-1" {
+		t.Errorf("expected party-1, got %q", memberships[0].PartyID)
+	}
+}
+
+func TestGetAccountIDsForParty(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	acct1, _ := svc.Register(context.Background(), "a@example.com", "password123")
+	acct2, _ := svc.Register(context.Background(), "b@example.com", "password123")
+
+	_ = svc.LinkPartyToAccount(context.Background(), acct1.ID, "party-shared", "org-1")
+	_ = svc.LinkPartyToAccount(context.Background(), acct2.ID, "party-shared", "org-1")
+
+	ids, err := svc.GetAccountIDsForParty(context.Background(), "party-shared")
+	if err != nil {
+		t.Fatalf("get account IDs failed: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("expected 2 account IDs, got %d", len(ids))
+	}
+}
+
+func TestCreatePendingPartyLink(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	link, err := svc.CreatePendingPartyLink(context.Background(), "inv-1", "party-1", "org-1")
+	if err != nil {
+		t.Fatalf("create pending link failed: %v", err)
+	}
+	if link.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+	if link.InvitationID != "inv-1" {
+		t.Errorf("expected invitation 'inv-1', got %q", link.InvitationID)
+	}
+	if link.PartyID != "party-1" {
+		t.Errorf("expected party 'party-1', got %q", link.PartyID)
+	}
+}
+
+func TestResolvePendingPartyLink_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	_, err := svc.CreatePendingPartyLink(context.Background(), "inv-1", "party-1", "org-1")
+	if err != nil {
+		t.Fatalf("create pending link failed: %v", err)
+	}
+
+	err = svc.ResolvePendingPartyLink(context.Background(), "inv-1", account.ID)
+	if err != nil {
+		t.Fatalf("resolve pending link failed: %v", err)
+	}
+
+	// The party should now be linked to the account.
+	memberships, err := svc.GetPartyMembershipsForAccount(context.Background(), account.ID, "org-1")
+	if err != nil {
+		t.Fatalf("get memberships failed: %v", err)
+	}
+	if len(memberships) != 1 {
+		t.Fatalf("expected 1 membership after resolve, got %d", len(memberships))
+	}
+	if memberships[0].PartyID != "party-1" {
+		t.Errorf("expected party-1, got %q", memberships[0].PartyID)
+	}
+}
+
+func TestResolvePendingPartyLink_NotFound(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	err := svc.ResolvePendingPartyLink(context.Background(), "nonexistent-inv", account.ID)
+	if !errors.Is(err, domain.ErrPendingLinkNotFound) {
+		t.Errorf("expected ErrPendingLinkNotFound, got %v", err)
 	}
 }

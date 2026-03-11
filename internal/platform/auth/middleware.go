@@ -30,11 +30,15 @@ func LoadUser(store *sessions.CookieStore) func(http.Handler) http.Handler {
 
 			email, _ := sess.Values[appSession.KeyEmail].(string)
 			roles, _ := sess.Values[appSession.KeyRoles].([]string)
+			activePartyID, _ := sess.Values[appSession.KeyActivePartyID].(string)
+			activePartyKind, _ := sess.Values[appSession.KeyActivePartyKind].(string)
 
 			user := User{
-				ID:    userID,
-				Email: email,
-				Roles: roles,
+				ID:              userID,
+				Email:           email,
+				Roles:           roles,
+				ActivePartyID:   activePartyID,
+				ActivePartyKind: activePartyKind,
 			}
 
 			ctx := WithUser(r.Context(), user)
@@ -52,6 +56,33 @@ func RequireAuth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// RequirePartyKind is middleware that checks the user's active party kind.
+// If the kind doesn't match, the user is redirected to the dashboard.
+// An empty ActivePartyKind is treated as "property_manager" (default for legacy accounts).
+func RequirePartyKind(kind string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := UserFromContext(r.Context())
+			if !ok {
+				http.Redirect(w, r, i18n.LocalizedPath(r.Context(), "/sign-in"), http.StatusSeeOther)
+				return
+			}
+
+			effectiveKind := user.ActivePartyKind
+			if effectiveKind == "" {
+				effectiveKind = "property_manager"
+			}
+
+			if effectiveKind != kind {
+				http.Redirect(w, r, i18n.LocalizedPath(r.Context(), "/dashboard"), http.StatusSeeOther)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // RequireGuest is middleware that redirects authenticated users to the dashboard.

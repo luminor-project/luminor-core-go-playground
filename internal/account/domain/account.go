@@ -15,7 +15,25 @@ type AccountCore struct {
 	Roles                         []Role
 	MustSetPassword               bool
 	CurrentlyActiveOrganizationID string
+	CurrentlyActivePartyID        string
 	CreatedAt                     time.Time
+}
+
+// PartyMembership links an account to a party within an organization.
+type PartyMembership struct {
+	AccountID string
+	PartyID   string
+	OrgID     string
+	CreatedAt time.Time
+}
+
+// PendingPartyLink holds a deferred party-account link for an invitation.
+type PendingPartyLink struct {
+	ID           string
+	InvitationID string
+	PartyID      string
+	OrgID        string
+	CreatedAt    time.Time
 }
 
 // NewAccountCore creates a new account with generated UUID and normalized email.

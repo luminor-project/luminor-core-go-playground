@@ -7,11 +7,13 @@ import (
 )
 
 const (
-	SessionName = "luminor_session"
-	KeyUserID   = "user_id"
-	KeyEmail    = "email"
-	KeyRoles    = "roles"
-	KeyFlash    = "_flash"
+	SessionName        = "luminor_session"
+	KeyUserID          = "user_id"
+	KeyEmail           = "email"
+	KeyRoles           = "roles"
+	KeyFlash           = "_flash"
+	KeyActivePartyID   = "active_party_id"
+	KeyActivePartyKind = "active_party_kind"
 )
 
 func NewStore(secretKey string) *sessions.CookieStore {

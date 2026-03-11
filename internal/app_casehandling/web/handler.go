@@ -9,6 +9,7 @@ import (
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web/templates"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
 	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
@@ -107,8 +108,8 @@ func (h *Handler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 
 	body := r.FormValue("body")
 
-	// Use a hardcoded operator for V1 demo
-	operatorPartyID := "party-sarah"
+	user := auth.MustUserFromContext(r.Context())
+	operatorPartyID := user.ActivePartyID
 
 	if err := h.workitems.ConfirmOutboundMessage(r.Context(), id, workitemfacade.ConfirmOutboundMessageDTO{
 		ConfirmedByPartyID: operatorPartyID,
@@ -163,8 +164,8 @@ func (h *Handler) HandleAddNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hardcoded operator for V1 demo
-	authorID := "party-sarah"
+	user := auth.MustUserFromContext(r.Context())
+	authorID := user.ActivePartyID
 
 	_, err = h.workitems.AddNote(r.Context(), id, workitemfacade.AddNoteDTO{
 		EntryIndex: entryIndex,

@@ -13,12 +13,15 @@ type orgService interface {
 	GetOrganizationName(ctx context.Context, orgID string) (string, error)
 	GetAllOrganizationsForUser(ctx context.Context, userID string) ([]domain.Organization, error)
 	CreateOrganization(ctx context.Context, ownerID, name string) (domain.Organization, error)
+	CreateInvitationAsActor(ctx context.Context, actorUserID, orgID, email string) (domain.Invitation, error)
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
 var _ interface {
 	GetOrganizationNameByID(ctx context.Context, orgID string) (string, error)
 	CreateDefaultOrg(ctx context.Context, accountID string) error
+	NotifyAccountJoinedOrg(ctx context.Context, accountID, orgID, email string) error
+	CreateInvitationAsActor(ctx context.Context, actorUserID, orgID, email string) (InvitationDTO, error)
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -63,5 +66,33 @@ func (f *facadeImpl) CreateDefaultOrg(ctx context.Context, accountID string) err
 		return fmt.Errorf("publish ActiveOrgChangedEvent: %w", err)
 	}
 
+	// Notify that the account joined the organization.
+	if err := eventbus.Publish(ctx, f.bus, AccountJoinedOrgEvent{
+		AccountID: accountID,
+		OrgID:     org.ID,
+	}); err != nil {
+		return fmt.Errorf("publish AccountJoinedOrgEvent: %w", err)
+	}
+
 	return nil
+}
+
+func (f *facadeImpl) CreateInvitationAsActor(ctx context.Context, actorUserID, orgID, email string) (InvitationDTO, error) {
+	inv, err := f.service.CreateInvitationAsActor(ctx, actorUserID, orgID, email)
+	if err != nil {
+		return InvitationDTO{}, fmt.Errorf("create invitation: %w", err)
+	}
+	return InvitationDTO{
+		ID:        inv.ID,
+		Email:     inv.Email,
+		CreatedAt: inv.CreatedAt,
+	}, nil
+}
+
+func (f *facadeImpl) NotifyAccountJoinedOrg(ctx context.Context, accountID, orgID, email string) error {
+	return eventbus.Publish(ctx, f.bus, AccountJoinedOrgEvent{
+		AccountID: accountID,
+		OrgID:     orgID,
+		Email:     email,
+	})
 }

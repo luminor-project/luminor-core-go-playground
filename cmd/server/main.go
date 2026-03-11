@@ -35,19 +35,41 @@ import (
 	raginfra "github.com/luminor-project/luminor-core-go-playground/internal/rag/infra"
 	ragweb "github.com/luminor-project/luminor-core-go-playground/internal/rag/web"
 
-	// Party & Subject verticals
+	// Party vertical
+	partydomain "github.com/luminor-project/luminor-core-go-playground/internal/party/domain"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
+	partyinfra "github.com/luminor-project/luminor-core-go-playground/internal/party/infra"
+	partysub "github.com/luminor-project/luminor-core-go-playground/internal/party/subscriber"
+
+	// Subject vertical
+	subjectdomain "github.com/luminor-project/luminor-core-go-playground/internal/subject/domain"
 	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
+	subjectinfra "github.com/luminor-project/luminor-core-go-playground/internal/subject/infra"
+
+	// Rental vertical
+	rentaldomain "github.com/luminor-project/luminor-core-go-playground/internal/rental/domain"
+	rentalfacade "github.com/luminor-project/luminor-core-go-playground/internal/rental/facade"
+	rentalinfra "github.com/luminor-project/luminor-core-go-playground/internal/rental/infra"
 
 	// WorkItem vertical
 	workitemfacade "github.com/luminor-project/luminor-core-go-playground/internal/workitem/facade"
 
 	// App Casehandling vertical
+	casehandlingfacade "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/facade"
 	caseinfra "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/infra"
 	casesub "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/subscriber"
 	caseweb "github.com/luminor-project/luminor-core-go-playground/internal/app_casehandling/web"
 
+	// App Property Management vertical
+	pmfacade "github.com/luminor-project/luminor-core-go-playground/internal/app_propertymanagement/facade"
+	pmweb "github.com/luminor-project/luminor-core-go-playground/internal/app_propertymanagement/web"
+
+	// App Inquiry vertical
+	inquiryfacade "github.com/luminor-project/luminor-core-go-playground/internal/app_inquiry/facade"
+	inquiryweb "github.com/luminor-project/luminor-core-go-playground/internal/app_inquiry/web"
+
 	// Platform
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/agentworkload"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
@@ -64,70 +86,40 @@ import (
 )
 
 func main() {
-	// Setup structured logging
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
 
-	// Load configuration
-	cfg, err := config.Load()
-	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
-	}
-
-	// Connect to databases
-	db, err := database.Connect(cfg.DatabaseURL)
-	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
-	}
+	cfg := mustLoadConfig()
+	db := mustConnect(cfg.DatabaseURL)
 	defer db.Close()
-
-	ragDB, err := database.Connect(cfg.RAGDatabaseURL)
-	if err != nil {
-		slog.Error("failed to connect to RAG database", "error", err)
-		os.Exit(1)
-	}
+	ragDB := mustConnect(cfg.RAGDatabaseURL)
 	defer ragDB.Close()
 
-	// Create event bus
 	bus := eventbus.New()
-	outboxStore := outbox.NewPostgresStore(db)
-
-	// Create session store
 	sessionStore := session.NewStore(cfg.SessionKey)
-
-	translator, err := i18n.LoadEmbeddedTranslator()
-	if err != nil {
-		slog.Error("failed to load i18n catalogs", "error", err)
-		os.Exit(1)
-	}
-
+	translator := mustLoadTranslator()
 	clk := clock.New()
 
-	// ── Build Account Vertical ──────────────────────────────────────────
-	accountRepo := accountinfra.NewPostgresRepository(db)
-	accountService := accountdomain.NewAccountService(accountRepo, clk)
-	acctFacade := accountfacade.New(accountService, bus, outboxStore)
-
-	// ── Build Organization Vertical ─────────────────────────────────────
-	orgRepo := orginfra.NewPostgresRepository(db)
-	orgService := orgdomain.NewOrgService(orgRepo, clk)
+	// ── Build Verticals ────────────────────────────────────────────────
+	acctFacade := accountfacade.New(accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk), bus, outbox.NewPostgresStore(db))
+	orgService := orgdomain.NewOrgService(orginfra.NewPostgresRepository(db), clk)
 	oFacade := orgfacade.New(orgService, bus)
 
-	// ── Build RAG Vertical ─────────────────────────────────────────────
 	ollamaClient := ollama.NewClient(cfg.LocalInferenceURL)
-	ollamaAdapter := &ollamaChatAdapter{client: ollamaClient}
-	ragRepo := raginfra.NewPostgresRepository(ragDB)
-	ragService := ragdomain.NewRAGService(ragRepo, ollamaClient, ollamaAdapter, cfg.EmbedModel, cfg.ChatModel, clk)
+	ragService := ragdomain.NewRAGService(raginfra.NewPostgresRepository(ragDB), ollamaClient, &ollamaChatAdapter{client: ollamaClient}, cfg.EmbedModel, cfg.ChatModel, clk)
 	rFacade := ragfacade.New(ragService, bus)
 
-	// ── Wire Event Subscribers ──────────────────────────────────────────
+	partyFac := partyfacade.New(partydomain.NewPartyService(partyinfra.NewPostgresRepository(db), clk))
+	subjectFac := subjectfacade.New(subjectdomain.NewSubjectService(subjectinfra.NewPostgresRepository(db), clk))
+	rentalFac := rentalfacade.New(rentaldomain.NewRentalService(rentalinfra.NewPostgresRepository(db), clk))
+
+	// ── Wire Event Subscribers ─────────────────────────────────────────
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)
 	accountsub.RegisterOrgChangedSubscriber(bus, acctFacade)
+	partysub.RegisterAccountJoinedOrgSubscriber(bus, partyFac, acctFacade)
 
-	// ── Build HTTP Routes ───────────────────────────────────────────────
+	// ── Build HTTP Routes ──────────────────────────────────────────────
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	contentweb.RegisterRoutes(mux, !cfg.IsProduction())
@@ -135,30 +127,58 @@ func main() {
 	orgweb.RegisterRoutes(mux, orgService, oFacade, acctFacade, sessionStore)
 	ragweb.RegisterRoutes(mux, rFacade)
 
-	// ── Wire UC-01 Casehandling (event store, workitem, projections, routes)
-	wireCasehandling(db, bus, mux, clk)
+	// Casehandling: event store, workitem, projections, routes, facade
+	wiFacade := workitemfacade.New(eventstore.NewPostgresStore(db), bus, clk)
+	dashboardStore := caseinfra.NewDashboardStore(db)
+	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
+	caseweb.RegisterRoutes(mux, dashboardStore, wiFacade, dashboardStore)
+	caseFac := casehandlingfacade.New(wiFacade, agentworkload.NewFakeAdapter(), subjectFac)
+
+	// Property management + inquiry
+	pmweb.RegisterRoutes(mux, pmfacade.New(partyFac, subjectFac, rentalFac, acctFacade, oFacade), partyFac, subjectFac, rentalFac, acctFacade)
+	inquiryweb.RegisterRoutes(mux, inquiryfacade.New(rentalFac, caseFac, partyFac), rentalFac, acctFacade)
 
 	// ── Compose Middleware Stack ────────────────────────────────────────
 	var handler http.Handler = mux
-
-	// CSRF protection
-	csrfMiddleware := appCSRF.Middleware(cfg.CSRFKey, cfg.IsProduction(), cfg.BaseURL)
-	handler = csrfMiddleware(handler)
-
-	// Flash messages
+	handler = appCSRF.Middleware(cfg.CSRFKey, cfg.IsProduction(), cfg.BaseURL)(handler)
 	handler = flash.Middleware(sessionStore)(handler)
-
-	// Load authenticated user into context
 	handler = auth.LoadUser(sessionStore)(handler)
-
-	// Locale-aware routing and translation context.
 	handler = i18n.Middleware(translator)(handler)
-
-	// Request logging (outermost)
 	handler = httplog.Middleware(handler)
 
-	// ── Health Check Endpoints ──────────────────────────────────────────
-	// Registered outside middleware to avoid CSRF/session/i18n overhead on probes.
+	addr := ":" + cfg.Port
+	slog.Info("server starting", "addr", addr, "env", cfg.AppEnv)
+	listenAndServe(withHealthChecks(handler, db), addr)
+}
+
+func mustLoadConfig() config.Config {
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+func mustConnect(url string) *pgxpool.Pool {
+	db, err := database.Connect(url)
+	if err != nil {
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	return db
+}
+
+func mustLoadTranslator() *i18n.Translator {
+	t, err := i18n.LoadEmbeddedTranslator()
+	if err != nil {
+		slog.Error("failed to load i18n catalogs", "error", err)
+		os.Exit(1)
+	}
+	return t
+}
+
+func withHealthChecks(handler http.Handler, db *pgxpool.Pool) *http.ServeMux {
 	topMux := http.NewServeMux()
 	topMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -171,11 +191,7 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 	topMux.Handle("/", handler)
-
-	// ── Start Server ────────────────────────────────────────────────────
-	addr := ":" + cfg.Port
-	slog.Info("server starting", "addr", addr, "env", cfg.AppEnv)
-	listenAndServe(topMux, addr)
+	return topMux
 }
 
 func listenAndServe(handler http.Handler, addr string) {
@@ -221,18 +237,4 @@ func (a *ollamaChatAdapter) Chat(ctx context.Context, model string, messages []r
 		ollamaMessages[i] = ollama.Message{Role: m.Role, Content: m.Content}
 	}
 	return a.client.Chat(ctx, model, ollamaMessages)
-}
-
-// wireCasehandling builds the UC-01 verticals: event store,
-// party/subject facades, workitem, projection subscribers, and routes.
-func wireCasehandling(db *pgxpool.Pool, bus *eventbus.Bus, mux *http.ServeMux, clk clock.RealClock) {
-	evStore := eventstore.NewPostgresStore(db)
-
-	partyFac := partyfacade.NewDemoPartyFacade()
-	subjectFac := subjectfacade.NewDemoSubjectFacade()
-	wiFacade := workitemfacade.New(evStore, bus, clk)
-	dashboardStore := caseinfra.NewDashboardStore(db)
-
-	casesub.RegisterProjectionSubscribers(bus, dashboardStore, partyFac, subjectFac)
-	caseweb.RegisterRoutes(mux, dashboardStore, wiFacade, dashboardStore)
 }

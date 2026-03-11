@@ -17,11 +17,11 @@ func defaultPolicy() policy {
 	return policy{
 		rootDir:                 ".",
 		modulePath:              modulePath,
-		verticals:               []string{"account", "organization", "content", "rag", "workitem", "app_casehandling", "party", "subject"},
+		verticals:               []string{"account", "organization", "content", "rag", "workitem", "app_casehandling", "app_propertymanagement", "app_inquiry", "party", "subject", "rental"},
 		sharedPackages:          []string{"common", "shared", "platform"},
 		allowedCrossVerticalPkg: []string{"facade"},
 		allowedVerticalSubpkgs:  []string{"domain", "facade", "infra", "web", "subscriber", "testharness"},
-		facadeOnlyVerticals:     []string{"party", "subject"},
+		facadeOnlyVerticals:     []string{},
 		// allowedCrossSymbols is populated at runtime by discoverFacadeValueSymbols.
 		// No manual allowlist needed — the facade package IS the allowlist.
 		allowedCrossSymbols: nil,
