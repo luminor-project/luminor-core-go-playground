@@ -1,7 +1,8 @@
 # luminor-core-go-playground
 
 [![CI](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/luminor-project/luminor-core-go-playground/badges/coverage.json)
+[![Tests](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/tests.yml/badge.svg)](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/tests.yml)
+[![Security](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/security.yml/badge.svg)](https://github.com/luminor-project/luminor-core-go-playground/actions/workflows/security.yml)
 
 An opinionated Go web application foundation built around vertical slice architecture with strict boundary enforcement, comprehensive testing, and excellent DX.
 
