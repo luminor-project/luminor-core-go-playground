@@ -260,6 +260,184 @@ func TestConfirmOutboundMessage_AlreadyConfirmed(t *testing.T) {
 	}
 }
 
+// workItemWithIntake returns a WorkItem after a successful intake (Created=true, TimelineEntryCount=1).
+func workItemWithIntake(t *testing.T) *domain.WorkItem {
+	t.Helper()
+	w := &domain.WorkItem{}
+	events, err := w.IntakeInboundMessage(domain.IntakeCmd{
+		WorkItemID:     "wi-1",
+		SenderPartyID:  "party-anna-schmidt",
+		SubjectID:      "subject-flussufer-12a",
+		Body:           "test",
+		HandlerPartyID: "party-sarah",
+		AgentPartyID:   "party-ki-assistent",
+	})
+	if err != nil {
+		t.Fatalf("intake failed: %v", err)
+	}
+	applyAll(w, events)
+	return w
+}
+
+func TestAddNote(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	events, err := w.AddNote(domain.AddNoteCmd{
+		WorkItemID: "wi-1",
+		NoteID:     "note-1",
+		EntryIndex: 0,
+		AuthorID:   "party-sarah",
+		Body:       "Internal remark",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].EventType != domain.EventNoteAddedToTimelineEntry {
+		t.Errorf("expected %s, got %s", domain.EventNoteAddedToTimelineEntry, events[0].EventType)
+	}
+
+	applyAll(w, events)
+	if w.NoteIDs == nil {
+		t.Fatal("expected NoteIDs to be initialized")
+	}
+	if deleted, ok := w.NoteIDs["note-1"]; !ok || deleted {
+		t.Error("expected note-1 to exist and not be deleted")
+	}
+}
+
+func TestAddNote_NotCreated(t *testing.T) {
+	t.Parallel()
+	w := &domain.WorkItem{}
+	_, err := w.AddNote(domain.AddNoteCmd{NoteID: "note-1", EntryIndex: 0})
+	if err != domain.ErrNotCreated {
+		t.Fatalf("expected ErrNotCreated, got: %v", err)
+	}
+}
+
+func TestAddNote_InvalidEntryIndex(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	_, err := w.AddNote(domain.AddNoteCmd{NoteID: "note-1", EntryIndex: -1})
+	if err != domain.ErrInvalidEntryIndex {
+		t.Fatalf("expected ErrInvalidEntryIndex for negative index, got: %v", err)
+	}
+
+	_, err = w.AddNote(domain.AddNoteCmd{NoteID: "note-1", EntryIndex: 99})
+	if err != domain.ErrInvalidEntryIndex {
+		t.Fatalf("expected ErrInvalidEntryIndex for out-of-range index, got: %v", err)
+	}
+}
+
+func TestEditNote(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	addEvents, _ := w.AddNote(domain.AddNoteCmd{
+		WorkItemID: "wi-1", NoteID: "note-1", EntryIndex: 0, AuthorID: "party-sarah", Body: "original",
+	})
+	applyAll(w, addEvents)
+
+	events, err := w.EditNote(domain.EditNoteCmd{
+		WorkItemID: "wi-1", NoteID: "note-1", Body: "updated",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].EventType != domain.EventNoteEditedOnTimelineEntry {
+		t.Errorf("expected %s, got %s", domain.EventNoteEditedOnTimelineEntry, events[0].EventType)
+	}
+}
+
+func TestEditNote_NotFound(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	_, err := w.EditNote(domain.EditNoteCmd{NoteID: "nonexistent", Body: "x"})
+	if err != domain.ErrNoteNotFound {
+		t.Fatalf("expected ErrNoteNotFound, got: %v", err)
+	}
+}
+
+func TestEditNote_AlreadyDeleted(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	addEvents, _ := w.AddNote(domain.AddNoteCmd{
+		WorkItemID: "wi-1", NoteID: "note-1", EntryIndex: 0, AuthorID: "party-sarah", Body: "original",
+	})
+	applyAll(w, addEvents)
+
+	delEvents, _ := w.DeleteNote(domain.DeleteNoteCmd{WorkItemID: "wi-1", NoteID: "note-1"})
+	applyAll(w, delEvents)
+
+	_, err := w.EditNote(domain.EditNoteCmd{NoteID: "note-1", Body: "updated"})
+	if err != domain.ErrNoteAlreadyDeleted {
+		t.Fatalf("expected ErrNoteAlreadyDeleted, got: %v", err)
+	}
+}
+
+func TestDeleteNote(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	addEvents, _ := w.AddNote(domain.AddNoteCmd{
+		WorkItemID: "wi-1", NoteID: "note-1", EntryIndex: 0, AuthorID: "party-sarah", Body: "to delete",
+	})
+	applyAll(w, addEvents)
+
+	events, err := w.DeleteNote(domain.DeleteNoteCmd{WorkItemID: "wi-1", NoteID: "note-1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].EventType != domain.EventNoteDeletedFromTimelineEntry {
+		t.Errorf("expected %s, got %s", domain.EventNoteDeletedFromTimelineEntry, events[0].EventType)
+	}
+
+	applyAll(w, events)
+	if !w.NoteIDs["note-1"] {
+		t.Error("expected note-1 to be marked as deleted")
+	}
+}
+
+func TestDeleteNote_NotFound(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	_, err := w.DeleteNote(domain.DeleteNoteCmd{NoteID: "nonexistent"})
+	if err != domain.ErrNoteNotFound {
+		t.Fatalf("expected ErrNoteNotFound, got: %v", err)
+	}
+}
+
+func TestDeleteNote_AlreadyDeleted(t *testing.T) {
+	t.Parallel()
+	w := workItemWithIntake(t)
+
+	addEvents, _ := w.AddNote(domain.AddNoteCmd{
+		WorkItemID: "wi-1", NoteID: "note-1", EntryIndex: 0, AuthorID: "party-sarah", Body: "x",
+	})
+	applyAll(w, addEvents)
+
+	delEvents, _ := w.DeleteNote(domain.DeleteNoteCmd{WorkItemID: "wi-1", NoteID: "note-1"})
+	applyAll(w, delEvents)
+
+	_, err := w.DeleteNote(domain.DeleteNoteCmd{NoteID: "note-1"})
+	if err != domain.ErrNoteAlreadyDeleted {
+		t.Fatalf("expected ErrNoteAlreadyDeleted, got: %v", err)
+	}
+}
+
 func TestGoldenPath_FinalState(t *testing.T) {
 	t.Parallel()
 	w := &domain.WorkItem{}

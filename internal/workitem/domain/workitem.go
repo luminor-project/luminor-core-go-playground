@@ -316,26 +316,3 @@ func (w *WorkItem) DeleteNote(cmd DeleteNoteCmd) ([]DomainEvent, error) {
 		}},
 	}, nil
 }
-
-// SetStatusCmd holds the data for changing the work item status.
-type SetStatusCmd struct {
-	WorkItemID string
-	NewStatus  Status
-}
-
-// SetStatus changes the work item status.
-func (w *WorkItem) SetStatus(cmd SetStatusCmd) ([]DomainEvent, error) {
-	if !w.Created {
-		return nil, ErrNotCreated
-	}
-
-	events := []DomainEvent{
-		{EventType: EventWorkItemStatusChanged, Payload: WorkItemStatusChanged{
-			WorkItemID: cmd.WorkItemID,
-			OldStatus:  w.Status,
-			NewStatus:  cmd.NewStatus,
-		}},
-	}
-
-	return events, nil
-}
