@@ -29,7 +29,42 @@ func main() {
 		os.Exit(1)
 	}
 
+	domainViolations, err := checkDomainPurity(p)
+	if err != nil {
+		fmt.Printf("archtest domain purity check failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	facadeIfaceViolations, err := checkNoExportedFacadeInterfaces(p)
+	if err != nil {
+		fmt.Printf("archtest facade interface check failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	subpkgViolations, err := checkVerticalSubpackages(p)
+	if err != nil {
+		fmt.Printf("archtest vertical subpackage check failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	unknownViolations, err := checkNoUnknownVerticals(p)
+	if err != nil {
+		fmt.Printf("archtest unknown verticals check failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	eventstoreViolations, err := checkEventStoreImmutability(p)
+	if err != nil {
+		fmt.Printf("archtest event store immutability check failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	violations := append(importViolations, typeViolations...)
+	violations = append(violations, domainViolations...)
+	violations = append(violations, facadeIfaceViolations...)
+	violations = append(violations, subpkgViolations...)
+	violations = append(violations, unknownViolations...)
+	violations = append(violations, eventstoreViolations...)
 	sort.Strings(violations)
 	reportOnly := os.Getenv("ARCHTEST_REPORT_ONLY") == "1"
 

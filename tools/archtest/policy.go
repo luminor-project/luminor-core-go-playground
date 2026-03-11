@@ -9,6 +9,8 @@ type policy struct {
 	sharedPackages          []string
 	allowedCrossVerticalPkg []string
 	allowedCrossSymbols     map[string]struct{}
+	allowedVerticalSubpkgs  []string
+	facadeOnlyVerticals     []string // verticals that export interfaces (no concrete impl)
 }
 
 func defaultPolicy() policy {
@@ -18,6 +20,8 @@ func defaultPolicy() policy {
 		verticals:               []string{"account", "organization", "content", "rag", "workitem", "app_casehandling", "party", "subject"},
 		sharedPackages:          []string{"common", "shared", "platform"},
 		allowedCrossVerticalPkg: []string{"facade"},
+		allowedVerticalSubpkgs:  []string{"domain", "facade", "infra", "web", "subscriber", "testharness"},
+		facadeOnlyVerticals:     []string{"party", "subject"},
 		// allowedCrossSymbols is populated at runtime by discoverFacadeValueSymbols.
 		// No manual allowlist needed — the facade package IS the allowlist.
 		allowedCrossSymbols: nil,

@@ -202,6 +202,203 @@ func isAllowlistedValueFieldAccess(p policy, info *types.Info, sel *ast.Selector
 	return allowed
 }
 
+// forbiddenDomainImports lists import path prefixes that domain packages must never use.
+// Domain packages should be pure business logic with zero infrastructure coupling.
+var forbiddenDomainImports = []string{
+	modulePath + "/internal/platform/",
+	"database/sql",
+	"net/http",
+	"github.com/jackc/pgx",
+}
+
+func checkDomainPurity(p policy) ([]string, error) {
+	var violations []string
+	for _, vertical := range p.verticals {
+		domainPath := filepath.Join(p.rootDir, "internal", vertical, "domain")
+		err := filepath.Walk(domainPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return filepath.SkipDir
+				}
+				return err
+			}
+			if info.IsDir() || !strings.HasSuffix(path, ".go") {
+				return nil
+			}
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			imports, err := getImports(path)
+			if err != nil {
+				return nil
+			}
+			for _, imp := range imports {
+				for _, forbidden := range forbiddenDomainImports {
+					if strings.HasPrefix(imp, forbidden) {
+						violations = append(violations, fmt.Sprintf(
+							"%s imports %s (domain packages must not import infrastructure)",
+							relPath(p.rootDir, path), imp))
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return violations, nil
+}
+
+func checkNoExportedFacadeInterfaces(p policy) ([]string, error) {
+	facadeOnly := make(map[string]bool)
+	for _, v := range p.facadeOnlyVerticals {
+		facadeOnly[v] = true
+	}
+
+	var violations []string
+	for _, vertical := range p.verticals {
+		if facadeOnly[vertical] {
+			continue
+		}
+		facadeDir := filepath.Join(p.rootDir, "internal", vertical, "facade")
+		err := filepath.Walk(facadeDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				if os.IsNotExist(walkErr) {
+					return filepath.SkipDir
+				}
+				return walkErr
+			}
+			if info.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			fset := token.NewFileSet()
+			f, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				return nil
+			}
+			for _, decl := range f.Decls {
+				genDecl, ok := decl.(*ast.GenDecl)
+				if !ok || genDecl.Tok != token.TYPE {
+					continue
+				}
+				for _, spec := range genDecl.Specs {
+					ts := spec.(*ast.TypeSpec)
+					if _, isIface := ts.Type.(*ast.InterfaceType); isIface && ts.Name.IsExported() {
+						violations = append(violations, fmt.Sprintf(
+							"%s exports interface %s (interfaces should be defined by consumers, not in facade packages)",
+							relPath(p.rootDir, path), ts.Name.Name))
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return violations, nil
+}
+
+func checkVerticalSubpackages(p policy) ([]string, error) {
+	allowed := make(map[string]bool)
+	for _, s := range p.allowedVerticalSubpkgs {
+		allowed[s] = true
+	}
+
+	var violations []string
+	for _, vertical := range p.verticals {
+		verticalDir := filepath.Join(p.rootDir, "internal", vertical)
+		entries, err := os.ReadDir(verticalDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			if !allowed[entry.Name()] {
+				violations = append(violations, fmt.Sprintf(
+					"internal/%s/%s is not a recognized vertical subpackage (allowed: %v)",
+					vertical, entry.Name(), p.allowedVerticalSubpkgs))
+			}
+		}
+	}
+	return violations, nil
+}
+
+func checkNoUnknownVerticals(p policy) ([]string, error) {
+	internalDir := filepath.Join(p.rootDir, "internal")
+	entries, err := os.ReadDir(internalDir)
+	if err != nil {
+		return nil, fmt.Errorf("read internal/: %w", err)
+	}
+	known := make(map[string]bool)
+	for _, v := range p.verticals {
+		known[v] = true
+	}
+	for _, s := range p.sharedPackages {
+		known[s] = true
+	}
+
+	var violations []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if !known[entry.Name()] {
+			violations = append(violations, fmt.Sprintf(
+				"internal/%s is not declared in archtest policy (add to verticals or sharedPackages)",
+				entry.Name()))
+		}
+	}
+	return violations, nil
+}
+
+func checkEventStoreImmutability(p policy) ([]string, error) {
+	storeDir := filepath.Join(p.rootDir, "internal", "platform", "eventstore")
+	var violations []string
+	err := filepath.Walk(storeDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return filepath.SkipDir
+			}
+			return err
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		for i, line := range strings.Split(string(content), "\n") {
+			upper := strings.ToUpper(line)
+			if strings.Contains(upper, "UPDATE ") || strings.Contains(upper, "DELETE ") {
+				// Exclude Go comments that discuss the rule itself.
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, "//") {
+					continue
+				}
+				violations = append(violations, fmt.Sprintf(
+					"%s:%d contains mutation SQL (event store must be append-only): %s",
+					relPath(p.rootDir, path), i+1, strings.TrimSpace(line)))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return violations, nil
+}
+
 func relPath(root, path string) string {
 	if root == "" || root == "." {
 		return path
