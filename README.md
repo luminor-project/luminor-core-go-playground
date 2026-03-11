@@ -121,7 +121,7 @@ docker compose up -d           # Start containers
 docker compose down            # Stop all
 ```
 
-Production build (multi-stage, distroless runtime):
+Production build (multi-stage, alpine runtime):
 
 ```bash
 docker build -t lcgp-app -f docker/prod/Dockerfile .
