@@ -80,6 +80,9 @@ func (w *WorkItem) Apply(eventType string, payload any) {
 	case EventNoteDeletedFromTimelineEntry:
 		e := payload.(NoteDeletedFromTimelineEntry)
 		w.NoteIDs[e.NoteID] = true
+
+	default:
+		panic("workitem.Apply: unknown event type: " + eventType)
 	}
 
 	w.Version++
