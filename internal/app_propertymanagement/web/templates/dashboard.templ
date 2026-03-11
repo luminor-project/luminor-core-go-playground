@@ -1,0 +1,349 @@
+package templates
+
+import (
+	"fmt"
+
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+	rentalfacade "github.com/luminor-project/luminor-core-go-playground/internal/rental/facade"
+	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
+)
+
+type DashboardData struct {
+	Properties []subjectfacade.SubjectInfoDTO
+	Tenants    []partyfacade.PartyInfoDTO
+	Rentals    []rentalfacade.RentalInfoDTO
+}
+
+func propertyName(properties []subjectfacade.SubjectInfoDTO, id string) string {
+	for _, p := range properties {
+		if p.ID == id {
+			return p.Name
+		}
+	}
+	return id
+}
+
+func tenantName(tenants []partyfacade.PartyInfoDTO, id string) string {
+	for _, t := range tenants {
+		if t.ID == id {
+			return t.Name
+		}
+	}
+	return id
+}
+
+templ Dashboard(data DashboardData) {
+	@layouts.AppShell(i18n.T(ctx, "pm.pageTitle")) {
+		<div class="-my-10 -mx-4 sm:-mx-6 lg:-mx-8 h-[calc(100vh-4rem)]" x-data="{ activeTab: 'properties', selectedId: '', selectedType: '' }">
+			<div class="lmn-workbench-grid h-full">
+				<!-- Left pane: tabs + item list -->
+				<aside class="lmn-workbench-pane-list overflow-y-auto">
+					<!-- Tab bar -->
+					<div class="flex border-b border-stone-200 dark:border-stone-700">
+						<button
+							type="button"
+							class="flex-1 px-3 py-2.5 text-xs font-medium text-center transition-colors"
+							:class="activeTab === 'properties' ? 'text-primary-700 dark:text-primary-300 border-b-2 border-primary-600 dark:border-primary-400' : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'"
+							@click="activeTab = 'properties'; selectedId = ''; selectedType = ''"
+						>
+							{ i18n.T(ctx, "pm.properties.title") }
+							<span class="ml-1 text-stone-400 dark:text-stone-500">({ fmt.Sprint(len(data.Properties)) })</span>
+						</button>
+						<button
+							type="button"
+							class="flex-1 px-3 py-2.5 text-xs font-medium text-center transition-colors"
+							:class="activeTab === 'tenants' ? 'text-primary-700 dark:text-primary-300 border-b-2 border-primary-600 dark:border-primary-400' : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'"
+							@click="activeTab = 'tenants'; selectedId = ''; selectedType = ''"
+						>
+							{ i18n.T(ctx, "pm.tenants.title") }
+							<span class="ml-1 text-stone-400 dark:text-stone-500">({ fmt.Sprint(len(data.Tenants)) })</span>
+						</button>
+						<button
+							type="button"
+							class="flex-1 px-3 py-2.5 text-xs font-medium text-center transition-colors"
+							:class="activeTab === 'rentals' ? 'text-primary-700 dark:text-primary-300 border-b-2 border-primary-600 dark:border-primary-400' : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'"
+							@click="activeTab = 'rentals'; selectedId = ''; selectedType = ''"
+						>
+							{ i18n.T(ctx, "pm.rentals.title") }
+							<span class="ml-1 text-stone-400 dark:text-stone-500">({ fmt.Sprint(len(data.Rentals)) })</span>
+						</button>
+					</div>
+
+					<!-- Properties list -->
+					<ul class="lmn-ticket-list" x-show="activeTab === 'properties'">
+						for _, prop := range data.Properties {
+							<li>
+								<button
+									type="button"
+									class="lmn-ticket-item w-full text-left"
+									data-item-id={ prop.ID }
+									:class="selectedId === $el.dataset.itemId && 'lmn-ticket-item-selected'"
+									@click="selectedId = $el.dataset.itemId; selectedType = 'property'"
+								>
+									<div class="min-w-0">
+										<h3 class="lmn-ticket-title truncate">{ prop.Name }</h3>
+										if prop.Detail != "" {
+											<p class="lmn-ticket-meta mt-1">{ prop.Detail }</p>
+										}
+									</div>
+								</button>
+							</li>
+						}
+						if len(data.Properties) == 0 {
+							<li class="p-4">
+								<p class="lmn-text-small">{ i18n.T(ctx, "pm.properties.empty") }</p>
+							</li>
+						}
+					</ul>
+
+					<!-- Tenants list -->
+					<ul class="lmn-ticket-list" x-show="activeTab === 'tenants'">
+						for _, tenant := range data.Tenants {
+							<li>
+								<button
+									type="button"
+									class="lmn-ticket-item w-full text-left"
+									data-item-id={ tenant.ID }
+									:class="selectedId === $el.dataset.itemId && 'lmn-ticket-item-selected'"
+									@click="selectedId = $el.dataset.itemId; selectedType = 'tenant'"
+								>
+									<div class="min-w-0">
+										<h3 class="lmn-ticket-title truncate">{ tenant.Name }</h3>
+									</div>
+								</button>
+							</li>
+						}
+						if len(data.Tenants) == 0 {
+							<li class="p-4">
+								<p class="lmn-text-small">{ i18n.T(ctx, "pm.tenants.empty") }</p>
+							</li>
+						}
+					</ul>
+
+					<!-- Rentals list -->
+					<ul class="lmn-ticket-list" x-show="activeTab === 'rentals'">
+						for _, rental := range data.Rentals {
+							<li>
+								<button
+									type="button"
+									class="lmn-ticket-item w-full text-left"
+									data-item-id={ rental.ID }
+									:class="selectedId === $el.dataset.itemId && 'lmn-ticket-item-selected'"
+									@click="selectedId = $el.dataset.itemId; selectedType = 'rental'"
+								>
+									<div class="min-w-0">
+										<h3 class="lmn-ticket-title truncate">{ propertyName(data.Properties, rental.SubjectID) }</h3>
+										<p class="lmn-ticket-meta mt-1">{ tenantName(data.Tenants, rental.TenantPartyID) }</p>
+									</div>
+								</button>
+							</li>
+						}
+						if len(data.Rentals) == 0 {
+							<li class="p-4">
+								<p class="lmn-text-small">{ i18n.T(ctx, "pm.rentals.empty") }</p>
+							</li>
+						}
+					</ul>
+				</aside>
+
+				<!-- Right pane: detail + forms -->
+				<main class="lmn-workbench-pane-detail overflow-y-auto">
+					<!-- Property detail -->
+					for _, prop := range data.Properties {
+						<div x-show="selectedType === 'property' && selectedId === $el.dataset.itemId" x-cloak="true" data-item-id={ prop.ID }>
+							@propertyDetail(prop)
+						</div>
+					}
+
+					<!-- Tenant detail -->
+					for _, tenant := range data.Tenants {
+						<div x-show="selectedType === 'tenant' && selectedId === $el.dataset.itemId" x-cloak="true" data-item-id={ tenant.ID }>
+							@tenantDetail(tenant)
+						</div>
+					}
+
+					<!-- Rental detail -->
+					for _, rental := range data.Rentals {
+						<div x-show="selectedType === 'rental' && selectedId === $el.dataset.itemId" x-cloak="true" data-item-id={ rental.ID }>
+							@rentalDetail(rental, data.Properties, data.Tenants)
+						</div>
+					}
+
+					<!-- Create forms (shown when no item selected) -->
+					<div x-show="selectedId === '' && activeTab === 'properties'" x-cloak="true">
+						@propertyCreateForm(data)
+					</div>
+					<div x-show="selectedId === '' && activeTab === 'tenants'" x-cloak="true">
+						@tenantCreateForm()
+					</div>
+					<div x-show="selectedId === '' && activeTab === 'rentals'" x-cloak="true">
+						@rentalAssignForm(data)
+					</div>
+
+					<!-- Empty state (shown by default before any tab interaction) -->
+					<div x-show="selectedId === '' && activeTab === 'properties' && 0 === 0" class="flex h-full min-h-[400px] items-center justify-center" x-ref="emptyFallback">
+					</div>
+				</main>
+			</div>
+		</div>
+	}
+}
+
+templ propertyDetail(prop subjectfacade.SubjectInfoDTO) {
+	<div class="lmn-workbench-detail-header">
+		<div class="flex items-center gap-3 mb-2">
+			<span class="text-sm font-medium text-stone-500 dark:text-stone-400">{ shortID(prop.ID) }</span>
+			<span class="lmn-badge lmn-badge-info">{ i18n.T(ctx, "pm.properties.title") }</span>
+		</div>
+		<h1 class="font-display text-2xl font-semibold text-primary-900 dark:text-primary-100">{ prop.Name }</h1>
+		if prop.Detail != "" {
+			<p class="mt-1 text-sm text-stone-600 dark:text-stone-400">{ prop.Detail }</p>
+		}
+	</div>
+}
+
+templ tenantDetail(tenant partyfacade.PartyInfoDTO) {
+	<div class="lmn-workbench-detail-header">
+		<div class="flex items-center gap-3 mb-2">
+			<span class="text-sm font-medium text-stone-500 dark:text-stone-400">{ shortID(tenant.ID) }</span>
+			<span class="lmn-badge lmn-badge-info">{ i18n.T(ctx, "pm.tenants.title") }</span>
+		</div>
+		<h1 class="font-display text-2xl font-semibold text-primary-900 dark:text-primary-100">{ tenant.Name }</h1>
+	</div>
+	<div class="p-5">
+		<h2 class="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">{ i18n.T(ctx, "pm.tenants.invite") }</h2>
+		<form action={ templ.SafeURL(i18n.LocalizedPath(ctx, fmt.Sprintf("/property-management/tenants/%s/invite", tenant.ID))) } method="post">
+			<div class="flex gap-2">
+				<input
+					type="email"
+					name="email"
+					placeholder={ i18n.T(ctx, "pm.tenants.emailPlaceholder") }
+					required
+					class="lmn-form-input flex-1"
+				/>
+				<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "pm.tenants.invite") }</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ rentalDetail(rental rentalfacade.RentalInfoDTO, properties []subjectfacade.SubjectInfoDTO, tenants []partyfacade.PartyInfoDTO) {
+	<div class="lmn-workbench-detail-header">
+		<div class="flex items-center gap-3 mb-2">
+			<span class="text-sm font-medium text-stone-500 dark:text-stone-400">{ shortID(rental.ID) }</span>
+			<span class="lmn-badge lmn-badge-success">{ i18n.T(ctx, "pm.rentals.title") }</span>
+		</div>
+		<h1 class="font-display text-2xl font-semibold text-primary-900 dark:text-primary-100">{ propertyName(properties, rental.SubjectID) }</h1>
+	</div>
+	<div class="p-5">
+		<div class="space-y-4">
+			<div>
+				<h3 class="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1">{ i18n.T(ctx, "pm.rentals.property") }</h3>
+				<p class="text-sm font-medium text-stone-900 dark:text-stone-100">{ propertyName(properties, rental.SubjectID) }</p>
+			</div>
+			<div>
+				<h3 class="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1">{ i18n.T(ctx, "pm.rentals.tenant") }</h3>
+				<p class="text-sm font-medium text-stone-900 dark:text-stone-100">{ tenantName(tenants, rental.TenantPartyID) }</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ propertyCreateForm(data DashboardData) {
+	<div class="lmn-workbench-detail-header">
+		<h1 class="font-display text-xl font-semibold text-primary-900 dark:text-primary-100">{ i18n.T(ctx, "pm.properties.add") }</h1>
+	</div>
+	<div class="p-5">
+		<form action={ i18n.LocalizedPath(ctx, "/property-management/properties") } method="post">
+			<div class="space-y-4">
+				<div>
+					<label class="lmn-form-label">{ i18n.T(ctx, "pm.properties.name") }</label>
+					<input
+						type="text"
+						name="name"
+						placeholder={ i18n.T(ctx, "pm.properties.namePlaceholder") }
+						required
+						class="lmn-form-input"
+					/>
+				</div>
+				<div>
+					<label class="lmn-form-label">{ i18n.T(ctx, "pm.properties.detail") }</label>
+					<input
+						type="text"
+						name="detail"
+						placeholder={ i18n.T(ctx, "pm.properties.detailPlaceholder") }
+						class="lmn-form-input"
+					/>
+				</div>
+				<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "pm.properties.add") }</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ tenantCreateForm() {
+	<div class="lmn-workbench-detail-header">
+		<h1 class="font-display text-xl font-semibold text-primary-900 dark:text-primary-100">{ i18n.T(ctx, "pm.tenants.add") }</h1>
+	</div>
+	<div class="p-5">
+		<form action={ i18n.LocalizedPath(ctx, "/property-management/tenants") } method="post">
+			<div class="space-y-4">
+				<div>
+					<label class="lmn-form-label">{ i18n.T(ctx, "pm.tenants.name") }</label>
+					<input
+						type="text"
+						name="name"
+						placeholder={ i18n.T(ctx, "pm.tenants.namePlaceholder") }
+						required
+						class="lmn-form-input"
+					/>
+				</div>
+				<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "pm.tenants.add") }</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ rentalAssignForm(data DashboardData) {
+	<div class="lmn-workbench-detail-header">
+		<h1 class="font-display text-xl font-semibold text-primary-900 dark:text-primary-100">{ i18n.T(ctx, "pm.rentals.assign") }</h1>
+	</div>
+	<div class="p-5">
+		if len(data.Properties) > 0 && len(data.Tenants) > 0 {
+			<form action={ i18n.LocalizedPath(ctx, "/property-management/rentals") } method="post">
+				<div class="space-y-4">
+					<div>
+						<label class="lmn-form-label">{ i18n.T(ctx, "pm.rentals.property") }</label>
+						<select name="subject_id" required class="lmn-form-select">
+							<option value="">{ i18n.T(ctx, "pm.rentals.selectProperty") }</option>
+							for _, prop := range data.Properties {
+								<option value={ prop.ID }>{ prop.Name }</option>
+							}
+						</select>
+					</div>
+					<div>
+						<label class="lmn-form-label">{ i18n.T(ctx, "pm.rentals.tenant") }</label>
+						<select name="tenant_party_id" required class="lmn-form-select">
+							<option value="">{ i18n.T(ctx, "pm.rentals.selectTenant") }</option>
+							for _, tenant := range data.Tenants {
+								<option value={ tenant.ID }>{ tenant.Name }</option>
+							}
+						</select>
+					</div>
+					<button type="submit" class="lmn-button-default">{ i18n.T(ctx, "pm.rentals.assign") }</button>
+				</div>
+			</form>
+		} else {
+			<p class="lmn-text-small">{ i18n.T(ctx, "pm.rentals.empty") }</p>
+		}
+	</div>
+}
+
+func shortID(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
+}

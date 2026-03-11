@@ -2,14 +2,15 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/app_propertymanagement/facade"
+	"github.com/luminor-project/luminor-core-go-playground/internal/app_propertymanagement/web/templates"
 	partyfacade "github.com/luminor-project/luminor-core-go-playground/internal/party/facade"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/auth"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
 	rentalfacade "github.com/luminor-project/luminor-core-go-playground/internal/rental/facade"
 	subjectfacade "github.com/luminor-project/luminor-core-go-playground/internal/subject/facade"
 )
@@ -76,9 +77,11 @@ func (h *Handler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	tenants, _ := h.parties.ListPartiesByOrgAndKind(r.Context(), orgID, partyfacade.PartyKindTenant)
 	rentals, _ := h.rentals.ListRentalsByOrg(r.Context(), orgID)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, "<h1>Property Management</h1>")
-	_, _ = fmt.Fprintf(w, "<p>Properties: %d, Tenants: %d, Rentals: %d</p>", len(properties), len(tenants), len(rentals))
+	render.Page(w, r, templates.Dashboard(templates.DashboardData{
+		Properties: properties,
+		Tenants:    tenants,
+		Rentals:    rentals,
+	}))
 }
 
 // HandleCreateProperty handles POST /property-management/properties.

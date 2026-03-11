@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Seed property manager demo setup"
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: mise run seed:property-mgr-setup <email> <password>"
+  exit 1
+fi
+
+mise run in-app-container go run ./cmd/seed-property-mgr-setup "$1" "$2"
