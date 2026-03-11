@@ -11,7 +11,7 @@ docker build -t lcgp-app -f docker/prod/Dockerfile .
 This creates a multi-stage build:
 
 1. **Builder stage** — Compiles Go binary with templ generation
-2. **Runtime stage** — Distroless container with only the binary and static assets
+2. **Runtime stage** — Alpine 3.21 container with only the binary and static assets (alpine, not distroless — shell needed for `docker compose exec`)
 
 ### Environment Variables
 
@@ -33,11 +33,18 @@ The app uses Go stdlib `net/http.CrossOriginProtection` for CSRF protection.
 
 ### Database Migrations
 
-Run before deploying new versions (from a Go-capable environment/CI runner with repo source):
+Run before deploying new versions. Locally via mise (runs inside the app container):
 
 ```bash
-DATABASE_URL=postgres://... go run ./cmd/migrate business up
-RAG_DATABASE_URL=postgres://... go run ./cmd/migrate rag up
+mise run migrate-db:business
+mise run migrate-db:rag
+```
+
+In production, the migrate binary is included in the Docker image:
+
+```bash
+docker compose exec app /app/migrate business up
+docker compose exec app /app/migrate rag up
 ```
 
 ### Health Check
@@ -72,4 +79,4 @@ Monitor PostgreSQL connection pool metrics and query performance.
 
 1. Check database connectivity
 2. Check migration files exist in `migrations/business/` or `migrations/rag/`
-3. Check for dirty migration state: `DATABASE_URL=... go run ./cmd/migrate business version`
+3. Check for dirty migration state: `mise run in-app-container go run ./cmd/migrate business version` (local) or `docker compose exec app /app/migrate business version` (production)

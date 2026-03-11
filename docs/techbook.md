@@ -47,7 +47,7 @@ Append-only event store in `internal/platform/eventstore/`. Stores events as JSO
 
 ### Event Bus: Custom synchronous
 
-~40 lines of Go using generics. Type-safe event publishing and subscription. Used for both CRUD-based cross-vertical events (e.g., `AccountCreatedEvent`) and event-sourced projection pipelines (e.g., workitem events → case dashboard read model).
+~60 lines of Go using generics. Type-safe event publishing and subscription. Used for both CRUD-based cross-vertical events (e.g., `AccountCreatedEvent`) and event-sourced projection pipelines (e.g., workitem events → case dashboard read model).
 
 ### Background Jobs: Outbox worker (current) + queue evolution (future)
 

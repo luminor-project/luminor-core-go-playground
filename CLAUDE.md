@@ -18,7 +18,7 @@ Never run `go`, `templ`, `npm`, or `air` directly — always use `mise run in-ap
 | `mise run tests-e2e`              | End-to-end tests                                   |
 | `mise run all-checks`             | build + quality + security + all test suites       |
 | `mise run seed`                   | Seed demo data                                     |
-| `mise run migrate-db/<db>`        | Run migrations (e.g. `migrate-db/business`)        |
+| `mise run migrate-db:<db>`        | Run migrations (e.g. `migrate-db:business`)        |
 | `mise run in-app-container <cmd>` | Run any command inside the app container           |
 
 When adding a new Go entry point under `cmd/`, always create a corresponding `.mise/tasks/` wrapper script.

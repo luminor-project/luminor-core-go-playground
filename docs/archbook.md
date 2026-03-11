@@ -11,6 +11,7 @@ The application is organized into self-contained verticals. Each vertical owns i
 - **account** — User authentication, profile management, session handling
 - **organization** — Multi-tenancy, teams, groups, invitations, access rights
 - **content** — Public pages (homepage, about, living styleguide)
+- **rag** — Retrieval-augmented generation with pgvector embeddings
 
 **Event-sourced:**
 
@@ -138,7 +139,7 @@ The codebase intentionally supports both CRUD and event-sourced verticals side b
 - **LoadStream(ctx, streamID)** — Returns all events for a stream in version order.
 - **No UPDATE or DELETE statements exist in this package.** The event store is strictly append-only.
 
-Events table: `events (id, stream_id, stream_version, event_type, payload JSONB, recorded_at)` with a unique constraint on `(stream_id, stream_version)`.
+Events table: `events (id, stream_id, stream_version, event_type, payload JSONB, causation_id, correlation_id, recorded_at)` with a unique constraint on `(stream_id, stream_version)`.
 
 ### Aggregate Reconstitution
 
