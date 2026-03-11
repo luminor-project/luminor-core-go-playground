@@ -14,6 +14,8 @@ type User struct {
 	Roles           []string
 	ActivePartyID   string
 	ActivePartyKind string
+	ActivePartyName string
+	OrgName         string
 }
 
 func WithUser(ctx context.Context, user User) context.Context {

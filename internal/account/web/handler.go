@@ -23,6 +23,7 @@ import (
 type Handler struct {
 	accounts     accountUseCases
 	sessionStore *sessions.CookieStore
+	enricher     sessionEnricher
 }
 
 type accountUseCases interface {
@@ -33,11 +34,17 @@ type accountUseCases interface {
 	SetPassword(ctx context.Context, accountID, newPassword string) error
 }
 
+type sessionEnricher interface {
+	GetPartyNameAndKind(ctx context.Context, partyID string) (name string, kind string, err error)
+	GetOrgName(ctx context.Context, orgID string) (string, error)
+}
+
 // NewHandler creates a new account handler.
-func NewHandler(accounts accountUseCases, sessionStore *sessions.CookieStore) *Handler {
+func NewHandler(accounts accountUseCases, sessionStore *sessions.CookieStore, enricher sessionEnricher) *Handler {
 	return &Handler{
 		accounts:     accounts,
 		sessionStore: sessionStore,
+		enricher:     enricher,
 	}
 }
 
@@ -168,9 +175,13 @@ func (h *Handler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var orgName string
-	if info.CurrentlyActiveOrganizationID != "" {
-		// Will be populated once organization facade is wired
-		orgName = ""
+	if info.CurrentlyActiveOrganizationID != "" && h.enricher != nil {
+		name, err := h.enricher.GetOrgName(r.Context(), info.CurrentlyActiveOrganizationID)
+		if err != nil {
+			slog.Warn("failed to load org name for dashboard", "error", err)
+		} else {
+			orgName = name
+		}
 	}
 
 	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
@@ -228,8 +239,36 @@ func (h *Handler) setSession(w http.ResponseWriter, r *http.Request, info facade
 	sess.Values[appSession.KeyEmail] = info.Email
 	sess.Values[appSession.KeyRoles] = info.Roles
 
+	h.enrichSessionWithPartyAndOrg(r.Context(), sess, info)
+
 	if err := sess.Save(r, w); err != nil {
 		slog.Error("failed to save session", "error", err)
+	}
+}
+
+func (h *Handler) enrichSessionWithPartyAndOrg(ctx context.Context, sess *sessions.Session, info facade.AccountInfoDTO) {
+	if h.enricher == nil {
+		return
+	}
+
+	if info.CurrentlyActivePartyID != "" {
+		name, kind, err := h.enricher.GetPartyNameAndKind(ctx, info.CurrentlyActivePartyID)
+		if err != nil {
+			slog.Warn("failed to load party info for session", "error", err, "party_id", info.CurrentlyActivePartyID)
+		} else {
+			sess.Values[appSession.KeyActivePartyID] = info.CurrentlyActivePartyID
+			sess.Values[appSession.KeyActivePartyKind] = kind
+			sess.Values[appSession.KeyActivePartyName] = name
+		}
+	}
+
+	if info.CurrentlyActiveOrganizationID != "" {
+		name, err := h.enricher.GetOrgName(ctx, info.CurrentlyActiveOrganizationID)
+		if err != nil {
+			slog.Warn("failed to load org name for session", "error", err, "org_id", info.CurrentlyActiveOrganizationID)
+		} else {
+			sess.Values[appSession.KeyOrgName] = name
+		}
 	}
 }
 

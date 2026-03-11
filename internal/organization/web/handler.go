@@ -16,6 +16,7 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/flash"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
+	appSession "github.com/luminor-project/luminor-core-go-playground/internal/platform/session"
 )
 
 // Handler handles organization-related HTTP requests.
@@ -116,6 +117,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.updateSessionOrgName(w, r, org.ID)
 	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.organization.created")
 	redirectWithLocale(w, r, "/organization")
 }
@@ -149,6 +151,7 @@ func (h *Handler) HandleRename(w http.ResponseWriter, r *http.Request) {
 		slog.Error("rename organization failed", "error", err)
 		flash.SetKey(w, r, h.sessionStore, flash.TypeError, "flash.organization.renameFailed")
 	} else {
+		h.updateSessionOrgName(w, r, activeOrgID)
 		flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.organization.renamed")
 	}
 
@@ -178,6 +181,7 @@ func (h *Handler) HandleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.updateSessionOrgName(w, r, orgID)
 	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.organization.switched")
 	redirectWithLocale(w, r, "/organization")
 }
@@ -288,6 +292,7 @@ func (h *Handler) HandleAcceptInvitation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	h.updateSessionOrgName(w, r, orgID)
 	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.organization.joined")
 	redirectWithLocale(w, r, "/organization")
 }
@@ -340,6 +345,23 @@ func (h *Handler) HandleRemoveMemberFromGroup(w http.ResponseWriter, r *http.Req
 	}
 
 	redirectWithLocale(w, r, "/organization")
+}
+
+func (h *Handler) updateSessionOrgName(w http.ResponseWriter, r *http.Request, orgID string) {
+	name, err := h.orgFacade.GetOrganizationNameByID(r.Context(), orgID)
+	if err != nil {
+		slog.Warn("failed to load org name for session", "error", err, "org_id", orgID)
+		return
+	}
+	sess, err := h.sessionStore.Get(r, appSession.SessionName)
+	if err != nil {
+		slog.Warn("failed to get session for org name update", "error", err)
+		return
+	}
+	sess.Values[appSession.KeyOrgName] = name
+	if err := sess.Save(r, w); err != nil {
+		slog.Warn("failed to save session with org name", "error", err)
+	}
 }
 
 func redirectWithLocale(w http.ResponseWriter, r *http.Request, path string) {

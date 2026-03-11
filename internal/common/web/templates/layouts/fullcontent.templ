@@ -44,15 +44,20 @@ templ FullContent(title string) {
 						if auth.IsAuthenticated(ctx) {
 							<a href={ i18n.LocalizedPath(ctx, "/dashboard") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.yourAccount")) }>{ i18n.T(ctx, "nav.yourAccount") }</a>
 							<a href={ i18n.LocalizedPath(ctx, "/organization") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.organization")) }>{ i18n.T(ctx, "nav.organization") }</a>
+							<a href={ i18n.LocalizedPath(ctx, "/cases") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.cases")) }>{ i18n.T(ctx, "nav.cases") }</a>
+							<a href={ i18n.LocalizedPath(ctx, "/property-management") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.propertyManagement")) }>{ i18n.T(ctx, "nav.propertyManagement") }</a>
+							<a href={ i18n.LocalizedPath(ctx, "/inquiry") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.inquiry")) }>{ i18n.T(ctx, "nav.inquiry") }</a>
 						} else {
 							<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
 							<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
 						}
+						@languageSwitcher()
 						@darkModeToggle()
 					</nav>
 
 					<!-- Small viewport CTAs -->
 					<div class="lg:hidden flex items-center gap-2">
+						@languageSwitcher()
 						@darkModeToggle()
 						<button
 							type="button"
@@ -115,6 +120,15 @@ templ FullContent(title string) {
 									</li>
 									<li>
 										<a href={ i18n.LocalizedPath(ctx, "/organization") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.organization")) }>{ i18n.T(ctx, "nav.organization") }</a>
+									</li>
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/cases") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.cases")) }>{ i18n.T(ctx, "nav.cases") }</a>
+									</li>
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/property-management") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.propertyManagement")) }>{ i18n.T(ctx, "nav.propertyManagement") }</a>
+									</li>
+									<li>
+										<a href={ i18n.LocalizedPath(ctx, "/inquiry") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.inquiry")) }>{ i18n.T(ctx, "nav.inquiry") }</a>
 									</li>
 								} else {
 									<li>

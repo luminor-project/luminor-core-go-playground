@@ -123,7 +123,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	contentweb.RegisterRoutes(mux, !cfg.IsProduction())
-	accountweb.RegisterRoutes(mux, acctFacade, sessionStore)
+	accountweb.RegisterRoutes(mux, acctFacade, sessionStore, &sessionEnricherAdapter{partyFac: partyFac, orgFacade: oFacade})
 	orgweb.RegisterRoutes(mux, orgService, oFacade, acctFacade, sessionStore)
 	ragweb.RegisterRoutes(mux, rFacade)
 
@@ -224,6 +224,28 @@ func listenAndServe(handler http.Handler, addr string) {
 		os.Exit(1)
 	}
 	slog.Info("server stopped gracefully")
+}
+
+// sessionEnricherAdapter bridges party and org facades to the account web handler's sessionEnricher interface.
+type sessionEnricherAdapter struct {
+	partyFac interface {
+		GetPartyInfo(ctx context.Context, partyID string) (partyfacade.PartyInfoDTO, error)
+	}
+	orgFacade interface {
+		GetOrganizationNameByID(ctx context.Context, orgID string) (string, error)
+	}
+}
+
+func (a *sessionEnricherAdapter) GetPartyNameAndKind(ctx context.Context, partyID string) (string, string, error) {
+	info, err := a.partyFac.GetPartyInfo(ctx, partyID)
+	if err != nil {
+		return "", "", err
+	}
+	return info.Name, string(info.PartyKind), nil
+}
+
+func (a *sessionEnricherAdapter) GetOrgName(ctx context.Context, orgID string) (string, error) {
+	return a.orgFacade.GetOrganizationNameByID(ctx, orgID)
 }
 
 // ollamaChatAdapter bridges ollama.Client to ragdomain.Generator by converting message types.

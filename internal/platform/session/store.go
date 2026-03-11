@@ -14,6 +14,8 @@ const (
 	KeyFlash           = "_flash"
 	KeyActivePartyID   = "active_party_id"
 	KeyActivePartyKind = "active_party_kind"
+	KeyActivePartyName = "active_party_name"
+	KeyOrgName         = "org_name"
 )
 
 func NewStore(secretKey string) *sessions.CookieStore {

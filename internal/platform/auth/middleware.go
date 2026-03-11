@@ -32,6 +32,8 @@ func LoadUser(store *sessions.CookieStore) func(http.Handler) http.Handler {
 			roles, _ := sess.Values[appSession.KeyRoles].([]string)
 			activePartyID, _ := sess.Values[appSession.KeyActivePartyID].(string)
 			activePartyKind, _ := sess.Values[appSession.KeyActivePartyKind].(string)
+			activePartyName, _ := sess.Values[appSession.KeyActivePartyName].(string)
+			orgName, _ := sess.Values[appSession.KeyOrgName].(string)
 
 			user := User{
 				ID:              userID,
@@ -39,6 +41,8 @@ func LoadUser(store *sessions.CookieStore) func(http.Handler) http.Handler {
 				Roles:           roles,
 				ActivePartyID:   activePartyID,
 				ActivePartyKind: activePartyKind,
+				ActivePartyName: activePartyName,
+				OrgName:         orgName,
 			}
 
 			ctx := WithUser(r.Context(), user)

@@ -86,7 +86,7 @@ func TestHandleSignIn_InvalidCredentials(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("email", "user@example.com")
@@ -117,7 +117,7 @@ func TestHandleSignIn_InternalError(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("email", "user@example.com")
@@ -141,7 +141,7 @@ func TestHandleSignUp_PasswordMismatch(t *testing.T) {
 
 	fake := &fakeAccountUseCases{}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("email", "new@example.com")
@@ -173,7 +173,7 @@ func TestHandleSignUp_ValidationError(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("email", "taken@example.com")
@@ -205,7 +205,7 @@ func TestHandleSignUp_InternalError(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("email", "user@example.com")
@@ -230,7 +230,7 @@ func TestHandleSignOut_ClearsSession(t *testing.T) {
 
 	fake := &fakeAccountUseCases{}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/sign-out", nil)
 	req = req.WithContext(auth.WithUser(req.Context(), auth.User{ID: "user-1", Email: "test@example.com"}))
@@ -251,7 +251,7 @@ func TestHandleSetPassword_PasswordMismatch(t *testing.T) {
 
 	fake := &fakeAccountUseCases{}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("password", "newpassword123")
@@ -283,7 +283,7 @@ func TestHandleSetPassword_PasswordTooShort(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(fake, newTestSessionStore())
+	h := NewHandler(fake, newTestSessionStore(), nil)
 
 	form := url.Values{}
 	form.Set("password", "short")

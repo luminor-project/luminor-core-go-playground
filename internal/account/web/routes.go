@@ -9,8 +9,8 @@ import (
 )
 
 // RegisterRoutes registers all account-related routes on the mux.
-func RegisterRoutes(mux *http.ServeMux, accounts accountUseCases, sessionStore *sessions.CookieStore) {
-	h := NewHandler(accounts, sessionStore)
+func RegisterRoutes(mux *http.ServeMux, accounts accountUseCases, sessionStore *sessions.CookieStore, enricher sessionEnricher) {
+	h := NewHandler(accounts, sessionStore, enricher)
 
 	// Guest-only routes (redirect if authenticated)
 	mux.Handle("GET /sign-in", auth.RequireGuest(http.HandlerFunc(h.ShowSignIn)))
