@@ -53,13 +53,19 @@ templ FullContent(title string) {
 						}
 						@languageSwitcher()
 						@darkModeToggle()
+						if auth.IsAuthenticated(ctx) {
+							@signOutButton()
+						}
 					</nav>
 
-					<!-- Small viewport CTAs -->
-					<div class="lg:hidden flex items-center gap-2">
-						@languageSwitcher()
-						@darkModeToggle()
-						<button
+				<!-- Small viewport CTAs -->
+				<div class="lg:hidden flex items-center gap-2">
+					@languageSwitcher()
+					@darkModeToggle()
+					if auth.IsAuthenticated(ctx) {
+						@signOutButton()
+					}
+					<button
 							type="button"
 							class="lmn-button-secondary px-2.5 py-2"
 							@click="mobileSidebarOpen = !mobileSidebarOpen"
