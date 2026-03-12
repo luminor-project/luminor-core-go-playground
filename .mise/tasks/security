@@ -5,8 +5,10 @@ set -euo pipefail
 echo "==> Installing Node dependencies..."
 mise run in-app-container npm ci
 
+echo "==> Generating templ templates..."
+mise run in-app-container templ generate
+
 echo "==> Running govulncheck..."
-mise run in-app-container sh -lc "command -v govulncheck >/dev/null 2>&1 || GOBIN=/usr/local/bin /usr/local/go/bin/go install golang.org/x/vuln/cmd/govulncheck@latest"
 mise run in-app-container govulncheck ./cmd/... ./internal/... ./tools/...
 
 echo "==> Running npm audit..."

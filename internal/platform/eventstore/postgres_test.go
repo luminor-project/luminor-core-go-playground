@@ -1,3 +1,5 @@
+//go:build integration
+
 package eventstore_test
 
 import (
