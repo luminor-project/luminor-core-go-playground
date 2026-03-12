@@ -47,11 +47,14 @@ templ AppShell(title string) {
 						<div class="lg:hidden">
 							@brandLogo()
 						</div>
-						<div class="flex flex-1 justify-end gap-4 items-center">
-							@headerContext()
-							@languageSwitcher()
-							@darkModeToggle()
-							<!-- Mobile menu toggle -->
+					<div class="flex flex-1 justify-end gap-4 items-center">
+						@headerContext()
+						@languageSwitcher()
+						@darkModeToggle()
+						if auth.IsAuthenticated(ctx) {
+							@signOutButton()
+						}
+						<!-- Mobile menu toggle -->
 							<div class="lg:hidden">
 								<button
 									type="button"
@@ -320,6 +323,20 @@ templ darkModeToggle() {
 			<path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
 		</svg>
 	</button>
+}
+
+templ signOutButton() {
+	<form method="POST" action={ i18n.LocalizedPath(ctx, "/sign-out") } class="inline">
+		<button
+			type="submit"
+			class="rounded-full w-9 h-9 flex items-center justify-center text-stone-600 hover:text-primary-700 dark:text-stone-400 dark:hover:text-primary-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none"
+			title={ i18n.T(ctx, "account.signOut") }
+		>
+			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/>
+			</svg>
+		</button>
+	</form>
 }
 
 templ flashMessages() {
