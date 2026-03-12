@@ -65,6 +65,50 @@ templ Homepage() {
 					</div>
 				</div>
 			</section>
+
+			<section class="lmn-card">
+				<div class="lmn-card-content space-y-6">
+					<div class="text-center">
+						<h2 class="lmn-h3">{ i18n.T(ctx, "homepage.tech.title") }</h2>
+						<p class="lmn-text mt-2 max-w-3xl mx-auto">{ i18n.T(ctx, "homepage.tech.subtitle") }</p>
+					</div>
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+						<div class="text-center p-4">
+							<p class="font-semibold text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.stack.go") }</p>
+							<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.stack.goDesc") }</p>
+						</div>
+						<div class="text-center p-4">
+							<p class="font-semibold text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.stack.templ") }</p>
+							<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.stack.templDesc") }</p>
+						</div>
+						<div class="text-center p-4">
+							<p class="font-semibold text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.stack.htmx") }</p>
+							<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.stack.htmxDesc") }</p>
+						</div>
+						<div class="text-center p-4">
+							<p class="font-semibold text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.stack.postgres") }</p>
+							<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.stack.postgresDesc") }</p>
+						</div>
+					</div>
+					<div class="border-t border-lmn-border pt-6">
+						<h3 class="lmn-h5 text-center mb-4">{ i18n.T(ctx, "homepage.tech.architecture.title") }</h3>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+							<div class="p-3">
+								<p class="font-medium text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.architecture.verticalSlices") }</p>
+								<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.architecture.verticalSlicesDesc") }</p>
+							</div>
+							<div class="p-3">
+								<p class="font-medium text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.architecture.eventSourcing") }</p>
+								<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.architecture.eventSourcingDesc") }</p>
+							</div>
+							<div class="p-3">
+								<p class="font-medium text-lmn-text-heading">{ i18n.T(ctx, "homepage.tech.architecture.facade") }</p>
+								<p class="lmn-text-small mt-1">{ i18n.T(ctx, "homepage.tech.architecture.facadeDesc") }</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
 		</div>
 	}
 }
