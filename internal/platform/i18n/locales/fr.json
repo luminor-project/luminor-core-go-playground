@@ -12,6 +12,7 @@
   "nav.cases": "Dossiers",
   "nav.propertyManagement": "Gestion immobiliere",
   "nav.inquiry": "Demande",
+  "nav.team": "Equipe",
   "header.actingAs": "Agissant en tant que",
   "header.partyKind.tenant": "Locataire",
   "header.partyKind.property_manager": "Gestionnaire",
@@ -47,6 +48,8 @@
   "about.section.stack.body": "Construit avec Go 1.26+, PostgreSQL, templates templ, htmx + Alpine.js et Tailwind CSS. Aucun bundler JavaScript requis.",
   "about.section.dx.title": "Experience developpeur",
   "about.section.dx.body": "Hot reload avec Air, setup en une commande via mise, linting complet avec golangci-lint, respect des frontieres d'architecture et tests multi-couches.",
+  "team.title": "Equipe",
+  "team.intro": "Rencontrez les personnes derriere Luminor qui font que tout cela est possible. Notre equipe diversifiee reunit des expertises en ingenierie, design et gestion de produit."
   "auth.common.email": "Adresse e-mail",
   "auth.common.emailPlaceholder": "vous@exemple.fr",
   "auth.common.password": "Mot de passe",

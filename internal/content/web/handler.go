@@ -34,3 +34,8 @@ func (h *Handler) ShowLivingStyleguide(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ShowStyleguideWorkbench(w http.ResponseWriter, r *http.Request) {
 	render.Page(w, r, templates.StyleguideWorkbench())
 }
+
+// ShowTeam renders the team page.
+func (h *Handler) ShowTeam(w http.ResponseWriter, r *http.Request) {
+	render.Page(w, r, templates.Team())
+}

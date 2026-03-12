@@ -47,11 +47,13 @@ templ FullContent(title string) {
 							<a href={ i18n.LocalizedPath(ctx, "/cases") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.cases")) }>{ i18n.T(ctx, "nav.cases") }</a>
 							<a href={ i18n.LocalizedPath(ctx, "/property-management") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.propertyManagement")) }>{ i18n.T(ctx, "nav.propertyManagement") }</a>
 							<a href={ i18n.LocalizedPath(ctx, "/inquiry") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.inquiry")) }>{ i18n.T(ctx, "nav.inquiry") }</a>
-						} else {
-							<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
-							<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
-						}
-						@languageSwitcher()
+					} else {
+						<a href={ i18n.LocalizedPath(ctx, "/about") } class={ topNavLinkClass(title, i18n.T(ctx, "about.title")) }>{ i18n.T(ctx, "about.title") }</a>
+						<a href={ i18n.LocalizedPath(ctx, "/team") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.team")) }>{ i18n.T(ctx, "nav.team") }</a>
+						<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
+						<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
+					}
+					@languageSwitcher()
 						@darkModeToggle()
 					</nav>
 
@@ -130,14 +132,20 @@ templ FullContent(title string) {
 									<li>
 										<a href={ i18n.LocalizedPath(ctx, "/inquiry") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.inquiry")) }>{ i18n.T(ctx, "nav.inquiry") }</a>
 									</li>
-								} else {
-									<li>
-										<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
-									</li>
-									<li>
-										<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
-									</li>
-								}
+							} else {
+								<li>
+									<a href={ i18n.LocalizedPath(ctx, "/about") } class={ topNavLinkClass(title, i18n.T(ctx, "about.title")) }>{ i18n.T(ctx, "about.title") }</a>
+								</li>
+								<li>
+									<a href={ i18n.LocalizedPath(ctx, "/team") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.team")) }>{ i18n.T(ctx, "nav.team") }</a>
+								</li>
+								<li>
+									<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signIn")) }>{ i18n.T(ctx, "nav.signIn") }</a>
+								</li>
+								<li>
+									<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class={ topNavLinkClass(title, i18n.T(ctx, "nav.signUp")) }>{ i18n.T(ctx, "nav.signUp") }</a>
+								</li>
+							}
 							</ul>
 						</nav>
 					</div>

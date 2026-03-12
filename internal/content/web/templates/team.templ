@@ -1,0 +1,50 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+type teamMember struct {
+	Name  string
+	Role  string
+	Email string
+}
+
+func getTeamMembers() []teamMember {
+	return []teamMember{
+		{Name: "Sarah Chen", Role: "CEO & Founder", Email: "sarah@luminor.dev"},
+		{Name: "Marcus Johnson", Role: "CTO", Email: "marcus@luminor.dev"},
+		{Name: "Emily Rodriguez", Role: "Lead Designer", Email: "emily@luminor.dev"},
+		{Name: "David Kim", Role: "Senior Developer", Email: "david@luminor.dev"},
+		{Name: "Lisa Thompson", Role: "Product Manager", Email: "lisa@luminor.dev"},
+		{Name: "James Wilson", Role: "DevOps Engineer", Email: "james@luminor.dev"},
+	}
+}
+
+templ Team() {
+	@layouts.FullContent(i18n.T(ctx, "team.title")) {
+		<div class="max-w-5xl mx-auto py-12">
+			<h1 class="lmn-pagetitle">{ i18n.T(ctx, "team.title") }</h1>
+
+			<p class="lmn-text mb-8">
+				{ i18n.T(ctx, "team.intro") }
+			</p>
+
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				for _, member := range getTeamMembers() {
+					<div class="lmn-card">
+						<div class="lmn-card-content text-center">
+							<div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-display">
+								{ string([]rune(member.Name)[0]) }
+							</div>
+							<h3 class="lmn-h4 mb-1">{ member.Name }</h3>
+							<p class="text-sm text-stone-500 dark:text-stone-400 mb-2">{ member.Role }</p>
+							<p class="text-xs text-stone-400 dark:text-stone-500">{ member.Email }</p>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
