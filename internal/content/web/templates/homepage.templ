@@ -65,6 +65,32 @@ templ Homepage() {
 					</div>
 				</div>
 			</section>
+
+			<section class="lmn-card lmn-card-highlight">
+				<div class="lmn-card-content">
+					<h2 class="lmn-h3 text-center mb-8">{ i18n.T(ctx, "homepage.tech.title") }</h2>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<div class="text-center">
+							<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-sky-100 text-sky-600 mb-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+							</div>
+							<p class="lmn-text-small">{ i18n.T(ctx, "homepage.tech.stack") }</p>
+						</div>
+						<div class="text-center">
+							<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-violet-100 text-violet-600 mb-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+							</div>
+							<p class="lmn-text-small">{ i18n.T(ctx, "homepage.tech.architecture") }</p>
+						</div>
+						<div class="text-center">
+							<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mb-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+							</div>
+							<p class="lmn-text-small">{ i18n.T(ctx, "homepage.tech.dx") }</p>
+						</div>
+					</div>
+				</div>
+			</section>
 		</div>
 	}
 }
