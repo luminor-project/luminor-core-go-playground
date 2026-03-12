@@ -19,4 +19,10 @@ database:
 #   path: /var/log/*.log   # Required when type="file" - path inside container
 
 # Optional: note shown in PR comments (e.g., test credentials, important info)
-# user_facing_note: "Test login: admin / secret"
+user_facing_note: "Sign in with `doe@example.com` and `test1234` to use a well-prepared property manager."
+
+# Run after preview is deployed to seed demo data
+post_deploy_commands:
+  - service: app
+    command: mise run seed:property-mgr-setup doe@example.com test1234
+    description: Seed property manager demo data
