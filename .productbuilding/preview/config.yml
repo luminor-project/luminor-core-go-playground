@@ -11,3 +11,9 @@ runtime:
 
 database:
   migrate_command: /app/migrate business up && /app/migrate rag up
+
+# Logging configuration for the logs endpoint (optional, defaults to docker compose logs)
+# logging:
+#   service: app           # Which compose service has the logs (default: compose.service)
+#   type: docker           # "docker" for stdout/stderr (default), "file" for file-based logs
+#   path: /var/log/*.log   # Required when type="file" - path inside container
