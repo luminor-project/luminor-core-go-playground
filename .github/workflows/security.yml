@@ -29,8 +29,6 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:master
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - uses: jdx/mise-action@v3
       - name: Start services with build cache
         run: |

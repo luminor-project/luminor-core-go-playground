@@ -15,7 +15,6 @@ echo "==> Running go vet..."
 mise run in-app-container go vet ./cmd/... ./internal/... ./tools/...
 
 echo "==> Running golangci-lint..."
-mise run in-app-container go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 mise run in-app-container golangci-lint run
 
 echo "==> Running architecture tests..."

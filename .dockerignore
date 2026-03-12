@@ -1,0 +1,38 @@
+# Version control
+.git
+
+# Build artifacts and binaries
+bin/
+tmp/
+*.exe
+*.test
+*.out
+coverage.html
+
+# Dependencies (installed inside container)
+node_modules/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# CI/CD and docs (not needed in build)
+.github/
+.claude/
+.productbuilding/
+
+# Test results
+tests/e2e/test-results/
+tests/e2e/playwright-report/
