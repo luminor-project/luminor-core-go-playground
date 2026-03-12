@@ -65,6 +65,39 @@ templ Homepage() {
 					</div>
 				</div>
 			</section>
+
+			<section class="lmn-section">
+				<div class="lmn-card">
+					<div class="lmn-card-content">
+						<h2 class="lmn-h3 mb-6">{ i18n.T(ctx, "homepage.tech.title") }</h2>
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<div>
+								<h3 class="lmn-h5 mb-2">{ i18n.T(ctx, "homepage.tech.backend.title") }</h3>
+								<ul class="lmn-list-disc lmn-text-small space-y-1 ml-4">
+									<li>{ i18n.T(ctx, "homepage.tech.backend.go") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.backend.templ") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.backend.postgres") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.backend.events") }</li>
+								</ul>
+							</div>
+							<div>
+								<h3 class="lmn-h5 mb-2">{ i18n.T(ctx, "homepage.tech.frontend.title") }</h3>
+								<ul class="lmn-list-disc lmn-text-small space-y-1 ml-4">
+									<li>{ i18n.T(ctx, "homepage.tech.frontend.htmx") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.frontend.alpine") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.frontend.tailwind") }</li>
+									<li>{ i18n.T(ctx, "homepage.tech.frontend.vendored") }</li>
+								</ul>
+							</div>
+						</div>
+						<div class="mt-6 pt-6 border-t border-lmn-border">
+							<p class="lmn-text-small">
+								{ i18n.T(ctx, "homepage.tech.architecture") }
+							</p>
+						</div>
+					</div>
+				</div>
+			</section>
 		</div>
 	}
 }
