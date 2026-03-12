@@ -25,4 +25,8 @@ user_facing_note: "Sign in with `doe@example.com` and `test1234` to use a well-p
 post_deploy_commands:
   - service: app
     command: /app/seed-property-mgr-setup doe@example.com test1234
-    description: Seed property manager demo data
+    description: Seed property manager demo account
+
+# Note: The command runs inside the app container.
+# For luminor-core-go-playground, we use the compiled binary directly.
+# The preview Dockerfile includes: server, migrate, seed-property-mgr-setup
