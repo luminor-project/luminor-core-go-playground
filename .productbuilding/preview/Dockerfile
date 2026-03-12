@@ -43,6 +43,7 @@ RUN templ generate
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/server ./cmd/server
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/seed-property-mgr-setup ./cmd/seed-property-mgr-setup
 
 # --- Stage 3: Runtime (Alpine for shell access) ---
 FROM alpine:3.21
@@ -53,6 +54,7 @@ WORKDIR /app
 
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/migrate /app/migrate
+COPY --from=builder /app/bin/seed-property-mgr-setup /app/seed-property-mgr-setup
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/migrations /app/migrations
 

@@ -11,3 +11,22 @@ runtime:
 
 database:
   migrate_command: /app/migrate business up && /app/migrate rag up
+
+# Logging configuration for the logs endpoint (optional, defaults to docker compose logs)
+# logging:
+#   service: app           # Which compose service has the logs (default: compose.service)
+#   type: docker           # "docker" for stdout/stderr (default), "file" for file-based logs
+#   path: /var/log/*.log   # Required when type="file" - path inside container
+
+# Optional: note shown in PR comments (e.g., test credentials, important info)
+user_facing_note: "Sign in with `doe@example.com` and `test1234` to use a well-prepared property manager."
+
+# Run after preview is deployed to seed demo data
+post_deploy_commands:
+  - service: app
+    command: /app/seed-property-mgr-setup doe@example.com test1234
+    description: Seed property manager demo account
+
+# Note: The command runs inside the app container.
+# For luminor-core-go-playground, we use the compiled binary directly.
+# The preview Dockerfile includes: server, migrate, seed-property-mgr-setup
