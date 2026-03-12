@@ -1,0 +1,30 @@
+name: OpenCode
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  opencode:
+    if: |
+      contains(github.event.comment.body, '/opencode')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anomalyco/opencode/github@latest
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+        with:
+          model: fireworks/accounts/fireworks/models/kimi-k2-5

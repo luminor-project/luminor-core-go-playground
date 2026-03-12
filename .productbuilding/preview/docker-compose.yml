@@ -1,0 +1,47 @@
+# Preview Compose file — production-oriented (no hot reload, no host mounts).
+# The orchestrator generates an override with Traefik labels, network, and BASE_URL.
+# Ollama is excluded from previews (RAG features won't be available).
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: .productbuilding/preview/Dockerfile
+    environment:
+      APP_ENV: preview
+      PORT: "8080"
+      DATABASE_URL: postgres://luminor:luminor@db-business:5432/luminor?sslmode=disable
+      RAG_DATABASE_URL: postgres://luminor:luminor@db-rag:5432/luminor_rag?sslmode=disable
+      SESSION_KEY: preview-session-key-32-bytes-ok!
+      CSRF_KEY: preview-csrf-key-32-bytes-okkkk!
+    depends_on:
+      db-business:
+        condition: service_healthy
+      db-rag:
+        condition: service_healthy
+
+  db-business:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: luminor
+      POSTGRES_USER: luminor
+      POSTGRES_PASSWORD: luminor
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luminor"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db-rag:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: luminor_rag
+      POSTGRES_USER: luminor
+      POSTGRES_PASSWORD: luminor
+    volumes:
+      - ../../docker/dev/init-rag-db.sh:/docker-entrypoint-initdb.d/init-rag-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luminor -d luminor_rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
