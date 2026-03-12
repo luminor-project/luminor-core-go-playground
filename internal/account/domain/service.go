@@ -2,6 +2,9 @@ package domain
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -11,12 +14,14 @@ import (
 )
 
 var (
-	ErrEmailAlreadyTaken   = errors.New("email already taken")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrAccountNotFound     = errors.New("account not found")
-	ErrPasswordTooShort    = errors.New("password must be at least 8 characters")
-	ErrAlreadyLinked       = errors.New("account already linked to this party")
-	ErrPendingLinkNotFound = errors.New("pending party link not found")
+	ErrEmailAlreadyTaken         = errors.New("email already taken")
+	ErrInvalidCredentials        = errors.New("invalid credentials")
+	ErrAccountNotFound           = errors.New("account not found")
+	ErrPasswordTooShort          = errors.New("password must be at least 8 characters")
+	ErrAlreadyLinked             = errors.New("account already linked to this party")
+	ErrPendingLinkNotFound       = errors.New("pending party link not found")
+	ErrPasswordResetTokenInvalid = errors.New("invalid or expired reset token")
+	ErrPasswordResetExpired      = errors.New("password reset link has expired")
 )
 
 // ValidationError represents a user-facing validation failure with a translation key.
@@ -50,6 +55,11 @@ type Repository interface {
 	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
 	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
 	DeletePendingPartyLink(ctx context.Context, id string) error
+
+	// Password reset token methods
+	SavePasswordResetToken(ctx context.Context, token PasswordResetToken) error
+	FindPasswordResetToken(ctx context.Context, tokenHash string) (PasswordResetToken, error)
+	DeletePasswordResetToken(ctx context.Context, tokenHash string) error
 }
 
 // AccountService handles core account business logic.
@@ -221,4 +231,116 @@ func (s *AccountService) ResolvePendingPartyLink(ctx context.Context, invitation
 	}
 
 	return s.repo.DeletePendingPartyLink(ctx, link.ID)
+}
+
+// RequestPasswordReset generates a password reset token for the given email.
+// Returns the account ID and token if the email exists, or empty strings if not found.
+// The error is always nil to prevent timing attacks (same response time for existing/non-existing emails).
+func (s *AccountService) RequestPasswordReset(ctx context.Context, email string) (accountID string, token string, err error) {
+	account, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, ErrAccountNotFound) {
+			// Return empty values but no error - prevents timing attacks
+			return "", "", nil
+		}
+		return "", "", fmt.Errorf("find account: %w", err)
+	}
+
+	// Generate cryptographically secure random token (32 bytes = 64 hex chars)
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", fmt.Errorf("generate random token: %w", err)
+	}
+	token = hex.EncodeToString(b)
+
+	// Hash the token for storage (SHA-256)
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	// Token expires in 1 hour
+	expiresAt := s.clock.Now().Add(1 * time.Hour)
+
+	resetToken := PasswordResetToken{
+		TokenHash: tokenHash,
+		AccountID: account.ID,
+		Email:     account.Email,
+		ExpiresAt: expiresAt,
+		CreatedAt: s.clock.Now(),
+	}
+
+	if err := s.repo.SavePasswordResetToken(ctx, resetToken); err != nil {
+		return "", "", fmt.Errorf("save password reset token: %w", err)
+	}
+
+	return account.ID, token, nil
+}
+
+// ValidatePasswordResetToken checks if a token is valid and not expired.
+// Returns the associated account ID if valid.
+func (s *AccountService) ValidatePasswordResetToken(ctx context.Context, token string) (string, error) {
+	// Hash the token for lookup
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	resetToken, err := s.repo.FindPasswordResetToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, ErrPasswordResetTokenInvalid) {
+			return "", ErrPasswordResetTokenInvalid
+		}
+		return "", fmt.Errorf("find password reset token: %w", err)
+	}
+
+	// Check if token is expired
+	if s.clock.Now().After(resetToken.ExpiresAt) {
+		return "", ErrPasswordResetExpired
+	}
+
+	return resetToken.AccountID, nil
+}
+
+// ResetPassword validates the token and updates the password.
+// The token is deleted after successful use (one-time use).
+func (s *AccountService) ResetPassword(ctx context.Context, token, newPlainPassword string) error {
+	if len(newPlainPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	// Validate token and get account ID
+	accountID, err := s.ValidatePasswordResetToken(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	// Hash the token for deletion
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	// Hash the new password
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPlainPassword), s.bcryptCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	// Update account password and delete token in a transaction
+	return s.repo.ExecuteInTx(ctx, func(repo Repository) error {
+		// Delete the token first (one-time use)
+		if err := repo.DeletePasswordResetToken(ctx, tokenHash); err != nil {
+			return fmt.Errorf("delete password reset token: %w", err)
+		}
+
+		// Update the password
+		account, err := repo.FindByID(ctx, accountID)
+		if err != nil {
+			return fmt.Errorf("find account: %w", err)
+		}
+
+		account.PasswordHash = string(passwordHash)
+		account.MustSetPassword = false
+
+		if err := repo.Update(ctx, account); err != nil {
+			return fmt.Errorf("update account password: %w", err)
+		}
+
+		return nil
+	})
 }

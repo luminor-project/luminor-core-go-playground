@@ -17,7 +17,8 @@ var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 type mockRepository struct {
 	accounts     map[string]domain.AccountCore
 	memberships  []domain.PartyMembership
-	pendingLinks map[string]domain.PendingPartyLink // keyed by ID
+	pendingLinks map[string]domain.PendingPartyLink   // keyed by ID
+	resetTokens  map[string]domain.PasswordResetToken // keyed by token hash
 }
 
 func newMockRepo() *mockRepository {
@@ -25,6 +26,7 @@ func newMockRepo() *mockRepository {
 		accounts:     make(map[string]domain.AccountCore),
 		memberships:  nil,
 		pendingLinks: make(map[string]domain.PendingPartyLink),
+		resetTokens:  make(map[string]domain.PasswordResetToken),
 	}
 }
 
@@ -138,6 +140,24 @@ func (m *mockRepository) FindPendingPartyLinkByInvitationID(_ context.Context, i
 
 func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) error {
 	delete(m.pendingLinks, id)
+	return nil
+}
+
+func (m *mockRepository) SavePasswordResetToken(_ context.Context, token domain.PasswordResetToken) error {
+	m.resetTokens[token.TokenHash] = token
+	return nil
+}
+
+func (m *mockRepository) FindPasswordResetToken(_ context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	token, ok := m.resetTokens[tokenHash]
+	if !ok {
+		return domain.PasswordResetToken{}, domain.ErrPasswordResetTokenInvalid
+	}
+	return token, nil
+}
+
+func (m *mockRepository) DeletePasswordResetToken(_ context.Context, tokenHash string) error {
+	delete(m.resetTokens, tokenHash)
 	return nil
 }
 

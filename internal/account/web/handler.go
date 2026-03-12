@@ -32,6 +32,9 @@ type accountUseCases interface {
 	Register(ctx context.Context, dto facade.RegistrationDTO) (string, error)
 	GetAccountInfoByID(ctx context.Context, id string) (facade.AccountInfoDTO, error)
 	SetPassword(ctx context.Context, accountID, newPassword string) error
+	RequestPasswordReset(ctx context.Context, email, baseURL string) error
+	ValidatePasswordResetToken(ctx context.Context, token string) (string, error)
+	ResetPassword(ctx context.Context, token, newPassword string) error
 }
 
 type sessionEnricher interface {
@@ -274,4 +277,99 @@ func (h *Handler) enrichSessionWithPartyAndOrg(ctx context.Context, sess *sessio
 
 func redirectWithLocale(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), path), http.StatusSeeOther)
+}
+
+// ShowForgotPassword renders the forgot password page.
+func (h *Handler) ShowForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ForgotPassword(render.CSRFTokenFromContext(ctx), "", ""))
+}
+
+// HandleForgotPassword processes the forgot password form submission.
+func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	email := r.FormValue("email")
+
+	// Build base URL for reset link
+	baseURL := "https://" + r.Host
+	if r.TLS == nil {
+		baseURL = "http://" + r.Host
+	}
+
+	// Request password reset - always succeeds to prevent timing attacks
+	_ = h.accounts.RequestPasswordReset(r.Context(), email, baseURL)
+
+	// Always show success message regardless of whether email exists
+	render.Page(w, r, templates.ForgotPasswordSent())
+}
+
+// ShowResetPassword renders the reset password page with token validation.
+func (h *Handler) ShowResetPassword(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		flash.SetKey(w, r, h.sessionStore, flash.TypeError, "flash.auth.resetTokenInvalid")
+		redirectWithLocale(w, r, "/forgot-password")
+		return
+	}
+
+	// Validate token
+	_, err := h.accounts.ValidatePasswordResetToken(r.Context(), token)
+	if err != nil {
+		flash.SetKey(w, r, h.sessionStore, flash.TypeError, "flash.auth.resetTokenInvalid")
+		redirectWithLocale(w, r, "/forgot-password")
+		return
+	}
+
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, ""))
+}
+
+// HandleResetPassword processes the reset password form submission.
+func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	passwordConfirm := r.FormValue("password_confirm")
+
+	if token == "" {
+		flash.SetKey(w, r, h.sessionStore, flash.TypeError, "flash.auth.resetTokenInvalid")
+		redirectWithLocale(w, r, "/forgot-password")
+		return
+	}
+
+	if password != passwordConfirm {
+		ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+		render.Component(w, r.WithContext(ctx), http.StatusOK,
+			templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, "auth.validation.passwordsDoNotMatch")))
+		return
+	}
+
+	if err := h.accounts.ResetPassword(r.Context(), token, password); err != nil {
+		var validationErr *domain.ValidationError
+		if errors.As(err, &validationErr) {
+			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+			render.Component(w, r.WithContext(ctx), http.StatusOK,
+				templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, validationErr.Key)))
+			return
+		}
+		if errors.Is(err, facade.ErrInvalidResetToken) || errors.Is(err, facade.ErrResetTokenExpired) {
+			flash.SetKey(w, r, h.sessionStore, flash.TypeError, "flash.auth.resetTokenInvalid")
+			redirectWithLocale(w, r, "/forgot-password")
+			return
+		}
+		slog.Error("reset password failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.auth.passwordResetSuccess")
+	redirectWithLocale(w, r, "/sign-in")
 }

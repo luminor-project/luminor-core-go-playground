@@ -25,6 +25,9 @@ type accountService interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestPasswordReset(ctx context.Context, email string) (accountID string, token string, err error)
+	ValidatePasswordResetToken(ctx context.Context, token string) (string, error)
+	ResetPassword(ctx context.Context, token, newPlainPassword string) error
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -44,6 +47,9 @@ var _ interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestPasswordReset(ctx context.Context, email, baseURL string) error
+	ValidatePasswordResetToken(ctx context.Context, token string) (string, error)
+	ResetPassword(ctx context.Context, token, newPassword string) error
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -220,4 +226,77 @@ func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {
 		CurrentlyActiveOrganizationID: a.CurrentlyActiveOrganizationID,
 		CurrentlyActivePartyID:        a.CurrentlyActivePartyID,
 	}
+}
+
+// RequestPasswordReset initiates a password reset flow.
+// Always returns nil error to prevent timing attacks (same response for existing/non-existing emails).
+func (f *facadeImpl) RequestPasswordReset(ctx context.Context, email, baseURL string) error {
+	accountID, token, err := f.service.RequestPasswordReset(ctx, email)
+	if err != nil {
+		return fmt.Errorf("request password reset: %w", err)
+	}
+
+	// If account doesn't exist, return nil to prevent timing attacks
+	if accountID == "" || token == "" {
+		return nil
+	}
+
+	// Build reset URL
+	resetURL := baseURL + "/reset-password?token=" + token
+
+	// Publish event via outbox for async email sending
+	if f.outbox != nil {
+		if err := f.outbox.Enqueue(ctx, outbox.EventTypePasswordResetRequestedV1, PasswordResetRequestedEvent{
+			AccountID: accountID,
+			Email:     email,
+			ResetURL:  resetURL,
+		}); err != nil {
+			return fmt.Errorf("enqueue password reset event: %w", err)
+		}
+	} else {
+		// Fallback: try to publish synchronously
+		if err := eventbus.Publish(ctx, f.bus, PasswordResetRequestedEvent{
+			AccountID: accountID,
+			Email:     email,
+			ResetURL:  resetURL,
+		}); err != nil {
+			slog.Warn("failed to publish password reset event synchronously", "error", err)
+		}
+	}
+
+	return nil
+}
+
+// ValidatePasswordResetToken checks if a reset token is valid.
+// Returns the account ID if valid, or an error if invalid/expired.
+func (f *facadeImpl) ValidatePasswordResetToken(ctx context.Context, token string) (string, error) {
+	accountID, err := f.service.ValidatePasswordResetToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, domain.ErrPasswordResetTokenInvalid) {
+			return "", ErrInvalidResetToken
+		}
+		if errors.Is(err, domain.ErrPasswordResetExpired) {
+			return "", ErrResetTokenExpired
+		}
+		return "", fmt.Errorf("validate password reset token: %w", err)
+	}
+	return accountID, nil
+}
+
+// ResetPassword validates the token and updates the password.
+func (f *facadeImpl) ResetPassword(ctx context.Context, token, newPassword string) error {
+	err := f.service.ResetPassword(ctx, token, newPassword)
+	if err != nil {
+		if errors.Is(err, domain.ErrPasswordTooShort) {
+			return &domain.ValidationError{Key: "auth.validation.passwordTooShort"}
+		}
+		if errors.Is(err, domain.ErrPasswordResetTokenInvalid) {
+			return ErrInvalidResetToken
+		}
+		if errors.Is(err, domain.ErrPasswordResetExpired) {
+			return ErrResetTokenExpired
+		}
+		return fmt.Errorf("reset password: %w", err)
+	}
+	return nil
 }

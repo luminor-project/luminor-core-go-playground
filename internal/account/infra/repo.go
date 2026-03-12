@@ -274,6 +274,47 @@ func (r *PostgresRepository) DeletePendingPartyLink(ctx context.Context, id stri
 	return nil
 }
 
+// Password reset token methods.
+
+func (r *PostgresRepository) SavePasswordResetToken(ctx context.Context, token domain.PasswordResetToken) error {
+	_, err := r.db.Exec(ctx,
+		`INSERT INTO password_reset_tokens (token_hash, account_id, email, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5)
+		 ON CONFLICT (token_hash) DO UPDATE SET
+			 account_id = EXCLUDED.account_id,
+			 email = EXCLUDED.email,
+			 expires_at = EXCLUDED.expires_at,
+			 created_at = EXCLUDED.created_at`,
+		token.TokenHash, token.AccountID, token.Email, token.ExpiresAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert password reset token: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) FindPasswordResetToken(ctx context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	var token domain.PasswordResetToken
+	err := r.db.QueryRow(ctx,
+		`SELECT token_hash, account_id, email, expires_at, created_at
+		 FROM password_reset_tokens WHERE token_hash = $1`, tokenHash).
+		Scan(&token.TokenHash, &token.AccountID, &token.Email, &token.ExpiresAt, &token.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PasswordResetToken{}, domain.ErrPasswordResetTokenInvalid
+		}
+		return domain.PasswordResetToken{}, fmt.Errorf("find password reset token: %w", err)
+	}
+	return token, nil
+}
+
+func (r *PostgresRepository) DeletePasswordResetToken(ctx context.Context, tokenHash string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM password_reset_tokens WHERE token_hash = $1`, tokenHash)
+	if err != nil {
+		return fmt.Errorf("delete password reset token: %w", err)
+	}
+	return nil
+}
+
 func nilIfEmpty(s string) *string {
 	if s == "" {
 		return nil

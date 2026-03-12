@@ -8,6 +8,8 @@ import (
 var (
 	ErrAlreadyLinked       = errors.New("account already linked to this party")
 	ErrPendingLinkNotFound = errors.New("pending party link not found")
+	ErrInvalidResetToken   = errors.New("invalid or expired reset token")
+	ErrResetTokenExpired   = errors.New("password reset link has expired")
 )
 
 // AccountInfoDTO holds account data for cross-vertical communication.

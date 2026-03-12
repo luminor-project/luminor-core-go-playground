@@ -36,6 +36,15 @@ type PendingPartyLink struct {
 	CreatedAt    time.Time
 }
 
+// PasswordResetToken holds a password reset token for an account.
+type PasswordResetToken struct {
+	TokenHash string
+	AccountID string
+	Email     string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
 // NewAccountCore creates a new account with generated UUID and normalized email.
 func NewAccountCore(email, passwordHash string, now time.Time) AccountCore {
 	return AccountCore{
