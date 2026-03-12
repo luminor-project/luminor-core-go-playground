@@ -301,6 +301,7 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Request password reset - always succeeds to prevent timing attacks
+	// Intentionally ignore error to prevent timing attacks
 	_ = h.accounts.RequestPasswordReset(r.Context(), email, baseURL)
 
 	// Always show success message regardless of whether email exists

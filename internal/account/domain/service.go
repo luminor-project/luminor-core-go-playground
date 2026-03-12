@@ -284,9 +284,6 @@ func (s *AccountService) ValidatePasswordResetToken(ctx context.Context, token s
 
 	resetToken, err := s.repo.FindPasswordResetToken(ctx, tokenHash)
 	if err != nil {
-		if errors.Is(err, ErrPasswordResetTokenInvalid) {
-			return "", ErrPasswordResetTokenInvalid
-		}
 		return "", fmt.Errorf("find password reset token: %w", err)
 	}
 
