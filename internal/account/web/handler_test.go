@@ -21,20 +21,18 @@ func newTestSessionStore() *sessions.CookieStore {
 }
 
 type fakeAccountUseCases struct {
-	authenticateFunc  func(ctx context.Context, email, password string) (facade.AccountInfoDTO, error)
-	authenticateCalls int
-
-	mustSetPasswordFunc  func(ctx context.Context, email string) (bool, error)
-	mustSetPasswordCalls int
-
-	registerFunc  func(ctx context.Context, dto facade.RegistrationDTO) (string, error)
-	registerCalls int
-
-	getAccountInfoByIDFunc  func(ctx context.Context, id string) (facade.AccountInfoDTO, error)
-	getAccountInfoByIDCalls int
-
-	setPasswordFunc  func(ctx context.Context, accountID, newPassword string) error
-	setPasswordCalls int
+	authenticateFunc          func(ctx context.Context, email, password string) (facade.AccountInfoDTO, error)
+	authenticateCalls         int
+	mustSetPasswordFunc       func(ctx context.Context, email string) (bool, error)
+	mustSetPasswordCalls      int
+	registerFunc              func(ctx context.Context, dto facade.RegistrationDTO) (string, error)
+	registerCalls             int
+	getAccountInfoByIDFunc    func(ctx context.Context, id string) (facade.AccountInfoDTO, error)
+	getAccountInfoByIDCalls   int
+	setPasswordFunc           func(ctx context.Context, accountID, newPassword string) error
+	setPasswordCalls          int
+	requestPasswordResetFunc  func(ctx context.Context, dto facade.PasswordResetRequestDTO) error
+	completePasswordResetFunc func(ctx context.Context, dto facade.PasswordResetCompletionDTO) error
 }
 
 func (f *fakeAccountUseCases) Authenticate(ctx context.Context, email, password string) (facade.AccountInfoDTO, error) {
@@ -78,10 +76,16 @@ func (f *fakeAccountUseCases) SetPassword(ctx context.Context, accountID, newPas
 }
 
 func (f *fakeAccountUseCases) RequestPasswordReset(ctx context.Context, dto facade.PasswordResetRequestDTO) error {
+	if f.requestPasswordResetFunc != nil {
+		return f.requestPasswordResetFunc(ctx, dto)
+	}
 	return nil
 }
 
 func (f *fakeAccountUseCases) CompletePasswordReset(ctx context.Context, dto facade.PasswordResetCompletionDTO) error {
+	if f.completePasswordResetFunc != nil {
+		return f.completePasswordResetFunc(ctx, dto)
+	}
 	return nil
 }
 

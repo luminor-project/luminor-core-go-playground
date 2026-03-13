@@ -17,7 +17,8 @@ var testClock = clock.NewFixed(time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC))
 type mockRepository struct {
 	accounts     map[string]domain.AccountCore
 	memberships  []domain.PartyMembership
-	pendingLinks map[string]domain.PendingPartyLink // keyed by ID
+	pendingLinks map[string]domain.PendingPartyLink   // keyed by ID
+	tokens       map[string]domain.PasswordResetToken // keyed by token hash
 }
 
 func newMockRepo() *mockRepository {
@@ -25,6 +26,7 @@ func newMockRepo() *mockRepository {
 		accounts:     make(map[string]domain.AccountCore),
 		memberships:  nil,
 		pendingLinks: make(map[string]domain.PendingPartyLink),
+		tokens:       make(map[string]domain.PasswordResetToken),
 	}
 }
 
@@ -142,18 +144,39 @@ func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) er
 }
 
 func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token domain.PasswordResetToken) error {
+	m.tokens[token.TokenHash] = token
 	return nil
 }
 
-func (m *mockRepository) FindPasswordResetTokenByAccountID(_ context.Context, accountID string) ([]domain.PasswordResetToken, error) {
-	return nil, nil
+func (m *mockRepository) FindPasswordResetTokenByHash(_ context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	token, ok := m.tokens[tokenHash]
+	if !ok {
+		return domain.PasswordResetToken{}, domain.ErrInvalidResetToken
+	}
+	return token, nil
 }
 
-func (m *mockRepository) MarkPasswordResetTokenUsed(_ context.Context, tokenID string, usedAt time.Time) error {
-	return nil
+func (m *mockRepository) ValidateAndConsumeToken(_ context.Context, tokenHash string, usedAt time.Time) (string, error) {
+	token, ok := m.tokens[tokenHash]
+	if !ok {
+		return "", nil // Token not found
+	}
+
+	if token.UsedAt != nil || !usedAt.Before(token.ExpiresAt) {
+		return "", nil // Token already used or expired
+	}
+
+	token.UsedAt = &usedAt
+	m.tokens[tokenHash] = token
+	return token.AccountID, nil
 }
 
 func (m *mockRepository) DeleteExpiredPasswordResetTokens(_ context.Context, before time.Time) error {
+	for hash, token := range m.tokens {
+		if token.ExpiresAt.Before(before) {
+			delete(m.tokens, hash)
+		}
+	}
 	return nil
 }
 

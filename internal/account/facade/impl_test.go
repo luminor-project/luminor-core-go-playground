@@ -10,12 +10,14 @@ import (
 )
 
 type fakeService struct {
-	setActivePartyFunc          func(ctx context.Context, accountID, partyID string) error
-	linkPartyToAccountFunc      func(ctx context.Context, accountID, partyID, orgID string) error
-	getPartyMembershipsFunc     func(ctx context.Context, accountID, orgID string) ([]domain.PartyMembership, error)
-	getAccountIDsForPartyFunc   func(ctx context.Context, partyID string) ([]string, error)
-	createPendingPartyLinkFunc  func(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
-	resolvePendingPartyLinkFunc func(ctx context.Context, invitationID, accountID string) error
+	setActivePartyFunc           func(ctx context.Context, accountID, partyID string) error
+	linkPartyToAccountFunc       func(ctx context.Context, accountID, partyID, orgID string) error
+	getPartyMembershipsFunc      func(ctx context.Context, accountID, orgID string) ([]domain.PartyMembership, error)
+	getAccountIDsForPartyFunc    func(ctx context.Context, partyID string) ([]string, error)
+	createPendingPartyLinkFunc   func(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
+	resolvePendingPartyLinkFunc  func(ctx context.Context, invitationID, accountID string) error
+	createPasswordResetTokenFunc func(ctx context.Context, accountID string) (domain.PasswordResetToken, string, error)
+	validateAndConsumeTokenFunc  func(ctx context.Context, rawToken string) (string, error)
 
 	// Unused stubs required by accountService interface.
 	registerFunc     func(ctx context.Context, email, pw string) (domain.AccountCore, error)
@@ -119,15 +121,17 @@ func (f *fakeService) ResolvePendingPartyLink(ctx context.Context, invitationID,
 }
 
 func (f *fakeService) CreatePasswordResetToken(ctx context.Context, accountID string) (domain.PasswordResetToken, string, error) {
+	if f.createPasswordResetTokenFunc != nil {
+		return f.createPasswordResetTokenFunc(ctx, accountID)
+	}
 	return domain.PasswordResetToken{}, "", nil
 }
 
-func (f *fakeService) FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (domain.PasswordResetToken, error) {
-	return domain.PasswordResetToken{}, nil
-}
-
-func (f *fakeService) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error {
-	return nil
+func (f *fakeService) ValidateAndConsumeToken(ctx context.Context, rawToken string) (string, error) {
+	if f.validateAndConsumeTokenFunc != nil {
+		return f.validateAndConsumeTokenFunc(ctx, rawToken)
+	}
+	return "", nil
 }
 
 func TestSetActiveParty_DelegatesToService(t *testing.T) {
@@ -142,7 +146,7 @@ func TestSetActiveParty_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	err := fac.SetActiveParty(context.Background(), "acct-1", "party-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -168,7 +172,7 @@ func TestLinkPartyToAccount_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	err := fac.LinkPartyToAccount(context.Background(), "acct-1", "party-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -187,7 +191,7 @@ func TestLinkPartyToAccount_AlreadyLinked(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	err := fac.LinkPartyToAccount(context.Background(), "acct-1", "party-1", "org-1")
 	if !errors.Is(err, ErrAlreadyLinked) {
 		t.Errorf("expected ErrAlreadyLinked, got %v", err)
@@ -206,7 +210,7 @@ func TestGetPartyMemberships_MapsCorrectly(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	memberships, err := fac.GetPartyMembershipsForAccount(context.Background(), "acct-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -236,7 +240,7 @@ func TestCreatePendingPartyLink_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	linkID, err := fac.CreatePendingPartyLink(context.Background(), "inv-1", "party-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -258,7 +262,7 @@ func TestResolvePendingPartyLink_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, nil, nil, "")
 	err := fac.ResolvePendingPartyLink(context.Background(), "inv-1", "acct-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

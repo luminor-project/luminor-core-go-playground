@@ -294,7 +294,10 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 
 	// Always show success message (don't leak email existence)
-	_ = h.accounts.RequestPasswordReset(r.Context(), facade.PasswordResetRequestDTO{Email: email})
+	// Log errors for observability but don't expose them to the user
+	if err := h.accounts.RequestPasswordReset(r.Context(), facade.PasswordResetRequestDTO{Email: email}); err != nil {
+		slog.Error("password reset request failed", "error", err, "email", email)
+	}
 
 	redirectWithLocale(w, r, "/forgot-password/sent")
 }
@@ -335,14 +338,7 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract account ID from token (first UUID part)
-	accountID := ""
-	if len(token) >= 36 {
-		accountID = token[:36]
-	}
-
 	err := h.accounts.CompletePasswordReset(r.Context(), facade.PasswordResetCompletionDTO{
-		AccountID:   accountID,
 		RawToken:    token,
 		NewPassword: password,
 	})
@@ -355,6 +351,11 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidResetToken) || errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+			// Log security event for monitoring
+			slog.Warn("password reset failed: invalid or reused token",
+				"error", err,
+				"ip", r.RemoteAddr,
+				"user_agent", r.UserAgent())
 			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
 			render.Component(w, r.WithContext(ctx), http.StatusOK,
 				templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, "auth.validation.invalidResetToken")))

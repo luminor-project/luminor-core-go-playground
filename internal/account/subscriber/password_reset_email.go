@@ -2,7 +2,6 @@ package subscriber
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/facade"
@@ -16,25 +15,28 @@ type outboxStore interface {
 }
 
 // RegisterPasswordResetEmailSubscriber wires the email handler for password reset requests.
-func RegisterPasswordResetEmailSubscriber(bus *eventbus.Bus, store outboxStore, baseURL string) {
+func RegisterPasswordResetEmailSubscriber(bus *eventbus.Bus, store outboxStore) {
 	eventbus.Subscribe(bus, func(ctx context.Context, e facade.PasswordResetRequestedEvent) error {
 		slog.Info("handling PasswordResetRequestedEvent",
 			"account_id", e.AccountID,
 			"email", e.Email,
+			"token_id", e.TokenID,
 		)
 
-		// Build reset URL: https://example.com/reset-password?token=<rawToken>
-		resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, e.RawToken)
-
 		// Enqueue email via outbox for async delivery
+		// Note: ResetURL contains the token, but it's only used for the email
 		email := passwordResetEmail{
 			To:       e.Email,
-			ResetURL: resetURL,
+			ResetURL: e.ResetURL,
 		}
 
 		if err := store.Enqueue(ctx, outbox.EventTypeSendEmailV1, email); err != nil {
-			slog.Error("failed to enqueue password reset email", "error", err, "email", e.Email)
-			return fmt.Errorf("enqueue password reset email: %w", err)
+			slog.Error("failed to enqueue password reset email",
+				"error", err,
+				"email", e.Email,
+				"token_id", e.TokenID,
+			)
+			return err
 		}
 
 		return nil

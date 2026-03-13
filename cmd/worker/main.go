@@ -48,7 +48,7 @@ func main() {
 	// Build verticals for event dispatch.
 	accountRepo := accountinfra.NewPostgresRepository(db)
 	accountService := accountdomain.NewAccountService(accountRepo, clk)
-	acctFacade := accountfacade.New(accountService, bus, outboxStore)
+	acctFacade := accountfacade.New(accountService, bus, outboxStore, cfg.BaseURL)
 
 	orgRepo := orginfra.NewPostgresRepository(db)
 	orgService := orgdomain.NewOrgService(orgRepo, clk)

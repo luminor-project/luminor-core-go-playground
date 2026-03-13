@@ -46,8 +46,8 @@ type PasswordResetRequestDTO struct {
 }
 
 // PasswordResetCompletionDTO finalizes the reset.
+// Note: AccountID is no longer required - it's extracted from the validated token.
 type PasswordResetCompletionDTO struct {
-	AccountID   string
 	RawToken    string
 	NewPassword string
 }

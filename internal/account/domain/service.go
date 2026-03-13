@@ -55,8 +55,8 @@ type Repository interface {
 
 	// Password reset token methods
 	CreatePasswordResetToken(ctx context.Context, token PasswordResetToken) error
-	FindPasswordResetTokenByAccountID(ctx context.Context, accountID string) ([]PasswordResetToken, error)
-	MarkPasswordResetTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error
+	FindPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
+	ValidateAndConsumeToken(ctx context.Context, tokenHash string, usedAt time.Time) (string, error)
 	DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error
 }
 
@@ -245,24 +245,22 @@ func (s *AccountService) CreatePasswordResetToken(ctx context.Context, accountID
 	return token, rawToken, nil
 }
 
-// FindValidPasswordResetToken finds a valid (unused and not expired) token by account ID and raw token.
-func (s *AccountService) FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (PasswordResetToken, error) {
-	tokens, err := s.repo.FindPasswordResetTokenByAccountID(ctx, accountID)
+// ValidateAndConsumeToken atomically validates and marks a token as used.
+// Returns the account ID if successful, or an error if token is invalid/expired/used.
+// This method is safe for concurrent use - only one caller will succeed.
+func (s *AccountService) ValidateAndConsumeToken(ctx context.Context, rawToken string) (string, error) {
+	// Compute hash for lookup
+	tokenHash := hashToken(rawToken)
+
+	// Attempt to atomically validate and consume the token
+	accountID, err := s.repo.ValidateAndConsumeToken(ctx, tokenHash, s.clock.Now())
 	if err != nil {
-		return PasswordResetToken{}, fmt.Errorf("find tokens: %w", err)
+		return "", fmt.Errorf("consume token: %w", err)
 	}
 
-	now := s.clock.Now()
-	for _, token := range tokens {
-		if token.IsValid(now) && token.Verify(rawToken) {
-			return token, nil
-		}
+	if accountID == "" {
+		return "", ErrInvalidResetToken
 	}
 
-	return PasswordResetToken{}, ErrInvalidResetToken
-}
-
-// MarkPasswordResetTokenUsed marks a token as used.
-func (s *AccountService) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error {
-	return s.repo.MarkPasswordResetTokenUsed(ctx, tokenID, s.clock.Now())
+	return accountID, nil
 }

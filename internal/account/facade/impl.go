@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -26,8 +27,7 @@ type accountService interface {
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
 	CreatePasswordResetToken(ctx context.Context, accountID string) (domain.PasswordResetToken, string, error)
-	FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (domain.PasswordResetToken, error)
-	MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error
+	ValidateAndConsumeToken(ctx context.Context, rawToken string) (string, error)
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -55,14 +55,16 @@ type facadeImpl struct {
 	service accountService
 	bus     *eventbus.Bus
 	outbox  outbox.Store
+	baseURL string
 }
 
 // New creates a new account facade implementation.
-func New(service accountService, bus *eventbus.Bus, outboxStore outbox.Store) *facadeImpl {
+func New(service accountService, bus *eventbus.Bus, outboxStore outbox.Store, baseURL string) *facadeImpl {
 	return &facadeImpl{
 		service: service,
 		bus:     bus,
 		outbox:  outboxStore,
+		baseURL: baseURL,
 	}
 }
 
@@ -235,65 +237,106 @@ func (f *facadeImpl) RequestPasswordReset(ctx context.Context, dto PasswordReset
 		return nil // Don't reveal email doesn't exist
 	}
 	if err != nil {
+		slog.Error("password reset request: find account failed", "error", err)
 		return fmt.Errorf("find account: %w", err)
 	}
 
 	// 2. Create token via domain (gets entity + raw token)
-	_, rawToken, err := f.service.CreatePasswordResetToken(ctx, account.ID)
+	token, rawToken, err := f.service.CreatePasswordResetToken(ctx, account.ID)
 	if err != nil {
+		slog.Error("password reset request: create token failed",
+			"error", err,
+			"account_id", account.ID)
 		return fmt.Errorf("create token: %w", err)
 	}
 
-	// 3. Publish event (email will be sent via subscriber or outbox)
+	// 3. Build reset URL with properly encoded token
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", f.baseURL, url.QueryEscape(rawToken))
+
+	// 4. Publish event (email will be sent via subscriber or outbox)
+	// Note: rawToken is NOT included in the event - only the pre-built URL contains it
 	event := PasswordResetRequestedEvent{
 		AccountID: account.ID,
 		Email:     account.Email,
-		RawToken:  rawToken,
+		ResetURL:  resetURL,
+		TokenID:   token.ID,
 	}
 	if err := eventbus.Publish(ctx, f.bus, event); err != nil {
 		// Fallback to outbox for reliability
 		if f.outbox != nil {
-			_ = f.outbox.Enqueue(ctx, outbox.EventTypePasswordResetRequestedV1, event)
+			if outboxErr := f.outbox.Enqueue(ctx, outbox.EventTypePasswordResetRequestedV1, event); outboxErr != nil {
+				slog.Error("password reset request: both publish and outbox failed",
+					"error", err,
+					"outbox_error", outboxErr,
+					"account_id", account.ID)
+			}
+		} else {
+			slog.Error("password reset request: publish failed and no outbox configured",
+				"error", err,
+				"account_id", account.ID)
 		}
 	}
 	return nil
 }
 
 // CompletePasswordReset validates token and updates password.
+// This operation is atomic - the token is consumed (validated + marked used) in one operation.
 func (f *facadeImpl) CompletePasswordReset(ctx context.Context, dto PasswordResetCompletionDTO) error {
 	// 1. Validate password length
 	if len(dto.NewPassword) < 8 {
 		return domain.ErrPasswordTooShort
 	}
 
-	// 2. Find and validate token
-	token, err := f.service.FindValidPasswordResetToken(ctx, dto.AccountID, dto.RawToken)
+	// 2. Atomically validate and consume token (prevents race conditions)
+	accountID, err := f.service.ValidateAndConsumeToken(ctx, dto.RawToken)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidResetToken) {
+			slog.Warn("password reset completion: invalid or expired token",
+				"error", err)
 			return domain.ErrInvalidResetToken
 		}
-		return fmt.Errorf("find token: %w", err)
+		slog.Error("password reset completion: token validation failed", "error", err)
+		return fmt.Errorf("validate token: %w", err)
+	}
+
+	if accountID == "" {
+		slog.Warn("password reset completion: token not found or already used")
+		return domain.ErrInvalidResetToken
 	}
 
 	// 3. Update password
-	if err := f.service.SetPassword(ctx, dto.AccountID, dto.NewPassword); err != nil {
+	if err := f.service.SetPassword(ctx, accountID, dto.NewPassword); err != nil {
+		slog.Error("password reset completion: set password failed",
+			"error", err,
+			"account_id", accountID)
 		return fmt.Errorf("set password: %w", err)
 	}
 
-	// 4. Mark token as used
-	if err := f.service.MarkPasswordResetTokenUsed(ctx, token.ID); err != nil {
-		return fmt.Errorf("mark token used: %w", err)
-	}
-
-	// 5. Publish completion event
-	account, err := f.service.FindByID(ctx, dto.AccountID)
+	// 4. Publish completion event
+	account, err := f.service.FindByID(ctx, accountID)
 	if err != nil {
-		slog.Warn("failed to find account for completion event", "error", err, "account_id", dto.AccountID)
+		slog.Error("password reset completion: find account for event failed",
+			"error", err,
+			"account_id", accountID)
 	} else {
-		_ = eventbus.Publish(ctx, f.bus, PasswordResetCompletedEvent{
-			AccountID: dto.AccountID,
+		event := PasswordResetCompletedEvent{
+			AccountID: accountID,
 			Email:     account.Email,
-		})
+		}
+		if pubErr := eventbus.Publish(ctx, f.bus, event); pubErr != nil {
+			slog.Error("password reset completion: publish event failed",
+				"error", pubErr,
+				"account_id", accountID)
+			// Fallback to outbox
+			if f.outbox != nil {
+				if outboxErr := f.outbox.Enqueue(ctx, outbox.EventTypePasswordResetCompletedV1, event); outboxErr != nil {
+					slog.Error("password reset completion: both publish and outbox failed",
+						"error", pubErr,
+						"outbox_error", outboxErr,
+						"account_id", accountID)
+				}
+			}
+		}
 	}
 
 	return nil

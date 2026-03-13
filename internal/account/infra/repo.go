@@ -295,36 +295,69 @@ func (r *PostgresRepository) CreatePasswordResetToken(ctx context.Context, token
 	return nil
 }
 
-func (r *PostgresRepository) FindPasswordResetTokenByAccountID(ctx context.Context, accountID string) ([]domain.PasswordResetToken, error) {
-	rows, err := r.db.Query(ctx,
+// FindPasswordResetTokenByHash looks up a token by its SHA-256 hash.
+func (r *PostgresRepository) FindPasswordResetTokenByHash(ctx context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	var t domain.PasswordResetToken
+	row := r.db.QueryRow(ctx,
 		`SELECT id, account_id, token_hash, expires_at, used_at, created_at
 		 FROM password_reset_tokens
-		 WHERE account_id = $1 AND used_at IS NULL AND expires_at > now()`,
-		accountID)
-	if err != nil {
-		return nil, fmt.Errorf("query password reset tokens: %w", err)
-	}
-	defer rows.Close()
+		 WHERE token_hash = $1`,
+		tokenHash)
 
-	var result []domain.PasswordResetToken
-	for rows.Next() {
-		var t domain.PasswordResetToken
-		if err := rows.Scan(&t.ID, &t.AccountID, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan password reset token: %w", err)
+	err := row.Scan(&t.ID, &t.AccountID, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PasswordResetToken{}, domain.ErrInvalidResetToken
 		}
-		result = append(result, t)
+		return domain.PasswordResetToken{}, fmt.Errorf("scan password reset token: %w", err)
 	}
-	return result, rows.Err()
+	return t, nil
 }
 
-func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error {
-	_, err := r.db.Exec(ctx,
-		`UPDATE password_reset_tokens SET used_at = $1 WHERE id = $2`,
-		usedAt, tokenID)
+// ValidateAndConsumeToken atomically validates and consumes a token.
+// Uses SELECT FOR UPDATE to prevent race conditions.
+// Returns the account ID if successful, empty string if token is invalid/already used.
+func (r *PostgresRepository) ValidateAndConsumeToken(ctx context.Context, tokenHash string, usedAt time.Time) (string, error) {
+	// Use a transaction with SELECT FOR UPDATE to prevent race conditions
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("mark password reset token used: %w", err)
+		return "", fmt.Errorf("begin transaction: %w", err)
 	}
-	return nil
+	defer tx.Rollback(ctx)
+
+	var accountID string
+	err = tx.QueryRow(ctx,
+		`SELECT account_id 
+		 FROM password_reset_tokens 
+		 WHERE token_hash = $1 
+		   AND used_at IS NULL 
+		   AND expires_at > $2
+		 FOR UPDATE`,
+		tokenHash, usedAt).Scan(&accountID)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Token not found, already used, or expired - return empty without error
+			return "", nil
+		}
+		return "", fmt.Errorf("query token: %w", err)
+	}
+
+	// Mark as used
+	_, err = tx.Exec(ctx,
+		`UPDATE password_reset_tokens 
+		 SET used_at = $1 
+		 WHERE token_hash = $2`,
+		usedAt, tokenHash)
+	if err != nil {
+		return "", fmt.Errorf("mark token used: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return accountID, nil
 }
 
 func (r *PostgresRepository) DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error {

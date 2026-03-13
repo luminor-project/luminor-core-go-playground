@@ -91,7 +91,7 @@ func main() {
 	oFacade := orgfacade.New(orgService, bus)
 	acctFacade := accountfacade.New(
 		accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk),
-		bus, outbox.NewPostgresStore(db),
+		bus, outbox.NewPostgresStore(db), cfg.BaseURL,
 	)
 	partyRepo := partyinfra.NewPostgresRepository(db)
 	partyFac := partyfacade.New(eventstore.NewPostgresStore(db), bus, clk, partyRepo)

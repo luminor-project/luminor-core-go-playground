@@ -81,6 +81,7 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/ollama"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/outbox"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/ratelimit"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/session"
 )
 
@@ -101,7 +102,7 @@ func main() {
 	clk := clock.New()
 
 	// ── Build Verticals ────────────────────────────────────────────────
-	acctFacade := accountfacade.New(accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk), bus, outbox.NewPostgresStore(db))
+	acctFacade := accountfacade.New(accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk), bus, outbox.NewPostgresStore(db), cfg.BaseURL)
 	orgService := orgdomain.NewOrgService(orginfra.NewPostgresRepository(db), clk)
 	oFacade := orgfacade.New(orgService, bus)
 
@@ -119,6 +120,7 @@ func main() {
 	// ── Wire Event Subscribers ─────────────────────────────────────────
 	orgsub.RegisterAccountCreatedSubscriber(bus, oFacade)
 	accountsub.RegisterOrgChangedSubscriber(bus, acctFacade)
+	accountsub.RegisterPasswordResetEmailSubscriber(bus, outbox.NewPostgresStore(db))
 	partysub.RegisterProjectionSubscribers(bus, partyRepo)
 	partysub.RegisterAccountJoinedOrgSubscriber(bus, partyFac, acctFacade)
 	subjectsub.RegisterProjectionSubscribers(bus, subjectRepo)
@@ -145,6 +147,9 @@ func main() {
 
 	// ── Compose Middleware Stack ────────────────────────────────────────
 	var handler http.Handler = mux
+	// Rate limiting for password reset endpoints (5 requests per 15 minutes per IP)
+	rateLimiter := ratelimit.NewIPRateLimiter(5, 15*time.Minute)
+	handler = ratelimit.Middleware(rateLimiter)(handler)
 	handler = appCSRF.Middleware(cfg.CSRFKey, cfg.IsProduction(), cfg.BaseURL)(handler)
 	handler = flash.Middleware(sessionStore)(handler)
 	handler = auth.LoadUser(sessionStore)(handler)
