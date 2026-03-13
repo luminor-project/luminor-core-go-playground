@@ -17,6 +17,12 @@ func RegisterRoutes(mux *http.ServeMux, accounts accountUseCases, sessionStore *
 	mux.Handle("POST /sign-in", auth.RequireGuest(http.HandlerFunc(h.HandleSignIn)))
 	mux.Handle("GET /sign-up", auth.RequireGuest(http.HandlerFunc(h.ShowSignUp)))
 	mux.Handle("POST /sign-up", auth.RequireGuest(http.HandlerFunc(h.HandleSignUp)))
+	mux.Handle("GET /forgot-password", auth.RequireGuest(http.HandlerFunc(h.ShowForgotPassword)))
+	mux.Handle("POST /forgot-password", auth.RequireGuest(http.HandlerFunc(h.HandleForgotPassword)))
+	mux.Handle("GET /forgot-password/sent", auth.RequireGuest(http.HandlerFunc(h.ShowForgotPasswordSent)))
+	mux.Handle("GET /reset-password", auth.RequireGuest(http.HandlerFunc(h.ShowResetPassword)))
+	mux.Handle("POST /reset-password", auth.RequireGuest(http.HandlerFunc(h.HandleResetPassword)))
+	mux.Handle("GET /reset-password/success", auth.RequireGuest(http.HandlerFunc(h.ShowResetPasswordSuccess)))
 
 	// Auth-required routes
 	mux.Handle("POST /sign-out", auth.RequireAuth(http.HandlerFunc(h.HandleSignOut)))

@@ -11,12 +11,14 @@ import (
 )
 
 var (
-	ErrEmailAlreadyTaken   = errors.New("email already taken")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrAccountNotFound     = errors.New("account not found")
-	ErrPasswordTooShort    = errors.New("password must be at least 8 characters")
-	ErrAlreadyLinked       = errors.New("account already linked to this party")
-	ErrPendingLinkNotFound = errors.New("pending party link not found")
+	ErrEmailAlreadyTaken     = errors.New("email already taken")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrAccountNotFound       = errors.New("account not found")
+	ErrPasswordTooShort      = errors.New("password must be at least 8 characters")
+	ErrAlreadyLinked         = errors.New("account already linked to this party")
+	ErrPendingLinkNotFound   = errors.New("pending party link not found")
+	ErrInvalidResetToken     = errors.New("invalid or expired reset token")
+	ErrResetTokenAlreadyUsed = errors.New("reset token already used")
 )
 
 // ValidationError represents a user-facing validation failure with a translation key.
@@ -50,6 +52,12 @@ type Repository interface {
 	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
 	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
 	DeletePendingPartyLink(ctx context.Context, id string) error
+
+	// Password reset token methods
+	CreatePasswordResetToken(ctx context.Context, token PasswordResetToken) error
+	FindPasswordResetTokenByAccountID(ctx context.Context, accountID string) ([]PasswordResetToken, error)
+	MarkPasswordResetTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error
+	DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error
 }
 
 // AccountService handles core account business logic.
@@ -221,4 +229,40 @@ func (s *AccountService) ResolvePendingPartyLink(ctx context.Context, invitation
 	}
 
 	return s.repo.DeletePendingPartyLink(ctx, link.ID)
+}
+
+// CreatePasswordResetToken creates a new password reset token for an account.
+func (s *AccountService) CreatePasswordResetToken(ctx context.Context, accountID string) (PasswordResetToken, string, error) {
+	token, rawToken, err := NewPasswordResetToken(accountID, s.clock)
+	if err != nil {
+		return PasswordResetToken{}, "", fmt.Errorf("create token: %w", err)
+	}
+
+	if err := s.repo.CreatePasswordResetToken(ctx, token); err != nil {
+		return PasswordResetToken{}, "", fmt.Errorf("save token: %w", err)
+	}
+
+	return token, rawToken, nil
+}
+
+// FindValidPasswordResetToken finds a valid (unused and not expired) token by account ID and raw token.
+func (s *AccountService) FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (PasswordResetToken, error) {
+	tokens, err := s.repo.FindPasswordResetTokenByAccountID(ctx, accountID)
+	if err != nil {
+		return PasswordResetToken{}, fmt.Errorf("find tokens: %w", err)
+	}
+
+	now := s.clock.Now()
+	for _, token := range tokens {
+		if token.IsValid(now) && token.Verify(rawToken) {
+			return token, nil
+		}
+	}
+
+	return PasswordResetToken{}, ErrInvalidResetToken
+}
+
+// MarkPasswordResetTokenUsed marks a token as used.
+func (s *AccountService) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error {
+	return s.repo.MarkPasswordResetTokenUsed(ctx, tokenID, s.clock.Now())
 }

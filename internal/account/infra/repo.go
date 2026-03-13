@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -279,4 +280,59 @@ func nilIfEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// Password reset token methods.
+
+func (r *PostgresRepository) CreatePasswordResetToken(ctx context.Context, token domain.PasswordResetToken) error {
+	_, err := r.db.Exec(ctx,
+		`INSERT INTO password_reset_tokens (id, account_id, token_hash, expires_at, used_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		token.ID, token.AccountID, token.TokenHash, token.ExpiresAt, token.UsedAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert password reset token: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) FindPasswordResetTokenByAccountID(ctx context.Context, accountID string) ([]domain.PasswordResetToken, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, account_id, token_hash, expires_at, used_at, created_at
+		 FROM password_reset_tokens
+		 WHERE account_id = $1 AND used_at IS NULL AND expires_at > now()`,
+		accountID)
+	if err != nil {
+		return nil, fmt.Errorf("query password reset tokens: %w", err)
+	}
+	defer rows.Close()
+
+	var result []domain.PasswordResetToken
+	for rows.Next() {
+		var t domain.PasswordResetToken
+		if err := rows.Scan(&t.ID, &t.AccountID, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan password reset token: %w", err)
+		}
+		result = append(result, t)
+	}
+	return result, rows.Err()
+}
+
+func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = $1 WHERE id = $2`,
+		usedAt, tokenID)
+	if err != nil {
+		return fmt.Errorf("mark password reset token used: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`DELETE FROM password_reset_tokens WHERE expires_at < $1`,
+		before)
+	if err != nil {
+		return fmt.Errorf("delete expired password reset tokens: %w", err)
+	}
+	return nil
 }

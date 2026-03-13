@@ -141,6 +141,22 @@ func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) er
 	return nil
 }
 
+func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token domain.PasswordResetToken) error {
+	return nil
+}
+
+func (m *mockRepository) FindPasswordResetTokenByAccountID(_ context.Context, accountID string) ([]domain.PasswordResetToken, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) MarkPasswordResetTokenUsed(_ context.Context, tokenID string, usedAt time.Time) error {
+	return nil
+}
+
+func (m *mockRepository) DeleteExpiredPasswordResetTokens(_ context.Context, before time.Time) error {
+	return nil
+}
+
 func TestRegister_Success(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()

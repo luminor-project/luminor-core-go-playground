@@ -32,6 +32,8 @@ type accountUseCases interface {
 	Register(ctx context.Context, dto facade.RegistrationDTO) (string, error)
 	GetAccountInfoByID(ctx context.Context, id string) (facade.AccountInfoDTO, error)
 	SetPassword(ctx context.Context, accountID, newPassword string) error
+	RequestPasswordReset(ctx context.Context, dto facade.PasswordResetRequestDTO) error
+	CompletePasswordReset(ctx context.Context, dto facade.PasswordResetCompletionDTO) error
 }
 
 type sessionEnricher interface {
@@ -274,4 +276,100 @@ func (h *Handler) enrichSessionWithPartyAndOrg(ctx context.Context, sess *sessio
 
 func redirectWithLocale(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), path), http.StatusSeeOther)
+}
+
+// ShowForgotPassword renders the forgot password page.
+func (h *Handler) ShowForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ForgotPassword(render.CSRFTokenFromContext(ctx), ""))
+}
+
+// HandleForgotPassword processes the forgot password form submission.
+func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	email := r.FormValue("email")
+
+	// Always show success message (don't leak email existence)
+	_ = h.accounts.RequestPasswordReset(r.Context(), facade.PasswordResetRequestDTO{Email: email})
+
+	redirectWithLocale(w, r, "/forgot-password/sent")
+}
+
+// ShowForgotPasswordSent renders the confirmation page after forgot password submission.
+func (h *Handler) ShowForgotPasswordSent(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ForgotPasswordSent())
+}
+
+// ShowResetPassword renders the reset password page with token from query parameter.
+func (h *Handler) ShowResetPassword(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Redirect(w, r, i18n.LocalizedPath(r.Context(), "/sign-in"), http.StatusSeeOther)
+		return
+	}
+
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, ""))
+}
+
+// HandleResetPassword processes the reset password form submission.
+func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	passwordConfirm := r.FormValue("password_confirm")
+
+	if password != passwordConfirm {
+		ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+		render.Component(w, r.WithContext(ctx), http.StatusOK,
+			templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, "auth.validation.passwordsDoNotMatch")))
+		return
+	}
+
+	// Extract account ID from token (first UUID part)
+	accountID := ""
+	if len(token) >= 36 {
+		accountID = token[:36]
+	}
+
+	err := h.accounts.CompletePasswordReset(r.Context(), facade.PasswordResetCompletionDTO{
+		AccountID:   accountID,
+		RawToken:    token,
+		NewPassword: password,
+	})
+
+	if err != nil {
+		if errors.Is(err, domain.ErrPasswordTooShort) {
+			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+			render.Component(w, r.WithContext(ctx), http.StatusOK,
+				templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, "auth.validation.passwordTooShort")))
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidResetToken) || errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+			render.Component(w, r.WithContext(ctx), http.StatusOK,
+				templates.ResetPassword(render.CSRFTokenFromContext(ctx), token, i18n.T(ctx, "auth.validation.invalidResetToken")))
+			return
+		}
+		slog.Error("password reset failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	redirectWithLocale(w, r, "/reset-password/success")
+}
+
+// ShowResetPasswordSuccess renders the success page after password reset.
+func (h *Handler) ShowResetPasswordSuccess(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.ResetPasswordSuccess())
 }

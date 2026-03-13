@@ -32,10 +32,15 @@ templ SignIn(csrfToken, lastEmail, errorMsg string) {
 								data-test-id="sign-in-email"
 							/>
 						</div>
-						<div data-test-id="sign-in-password">
-							@layouts.FormField("password", "password", i18n.T(ctx, "auth.common.password"), "password", i18n.T(ctx, "auth.signIn.passwordPlaceholder"), "current-password", "", true)
-						</div>
-						<button type="submit" class="lmn-button-default w-full" data-test-id="sign-in-submit">{ i18n.T(ctx, "auth.signIn.submit") }</button>
+<div data-test-id="sign-in-password">
+						@layouts.FormField("password", "password", i18n.T(ctx, "auth.common.password"), "password", i18n.T(ctx, "auth.signIn.passwordPlaceholder"), "current-password", "", true)
+					</div>
+					<div class="flex justify-end">
+						<a href={ i18n.LocalizedPath(ctx, "/forgot-password") } class="lmn-link-secondary text-sm" data-test-id="sign-in-forgot-password">
+							{ i18n.T(ctx, "auth.signIn.forgotPassword") }
+						</a>
+					</div>
+					<button type="submit" class="lmn-button-default w-full" data-test-id="sign-in-submit">{ i18n.T(ctx, "auth.signIn.submit") }</button>
 					</form>
 				}
 				<p class="text-center lmn-text-small">

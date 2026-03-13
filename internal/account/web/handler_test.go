@@ -77,6 +77,14 @@ func (f *fakeAccountUseCases) SetPassword(ctx context.Context, accountID, newPas
 	return nil
 }
 
+func (f *fakeAccountUseCases) RequestPasswordReset(ctx context.Context, dto facade.PasswordResetRequestDTO) error {
+	return nil
+}
+
+func (f *fakeAccountUseCases) CompletePasswordReset(ctx context.Context, dto facade.PasswordResetCompletionDTO) error {
+	return nil
+}
+
 func TestHandleSignIn_InvalidCredentials(t *testing.T) {
 	t.Parallel()
 

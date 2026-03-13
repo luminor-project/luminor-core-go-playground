@@ -39,3 +39,15 @@ type RegistrationDTO struct {
 	PlainPassword   string
 	MustSetPassword bool
 }
+
+// PasswordResetRequestDTO initiates the reset flow.
+type PasswordResetRequestDTO struct {
+	Email string
+}
+
+// PasswordResetCompletionDTO finalizes the reset.
+type PasswordResetCompletionDTO struct {
+	AccountID   string
+	RawToken    string
+	NewPassword string
+}

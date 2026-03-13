@@ -25,6 +25,9 @@ type accountService interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	CreatePasswordResetToken(ctx context.Context, accountID string) (domain.PasswordResetToken, string, error)
+	FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (domain.PasswordResetToken, error)
+	MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -44,6 +47,8 @@ var _ interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestPasswordReset(ctx context.Context, dto PasswordResetRequestDTO) error
+	CompletePasswordReset(ctx context.Context, dto PasswordResetCompletionDTO) error
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -220,4 +225,76 @@ func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {
 		CurrentlyActiveOrganizationID: a.CurrentlyActiveOrganizationID,
 		CurrentlyActivePartyID:        a.CurrentlyActivePartyID,
 	}
+}
+
+// RequestPasswordReset initiates the flow (idempotent - no error if email not found).
+func (f *facadeImpl) RequestPasswordReset(ctx context.Context, dto PasswordResetRequestDTO) error {
+	// 1. Find account by email (silent return if not found - security)
+	account, err := f.service.FindByEmail(ctx, dto.Email)
+	if errors.Is(err, domain.ErrAccountNotFound) {
+		return nil // Don't reveal email doesn't exist
+	}
+	if err != nil {
+		return fmt.Errorf("find account: %w", err)
+	}
+
+	// 2. Create token via domain (gets entity + raw token)
+	_, rawToken, err := f.service.CreatePasswordResetToken(ctx, account.ID)
+	if err != nil {
+		return fmt.Errorf("create token: %w", err)
+	}
+
+	// 3. Publish event (email will be sent via subscriber or outbox)
+	event := PasswordResetRequestedEvent{
+		AccountID: account.ID,
+		Email:     account.Email,
+		RawToken:  rawToken,
+	}
+	if err := eventbus.Publish(ctx, f.bus, event); err != nil {
+		// Fallback to outbox for reliability
+		if f.outbox != nil {
+			_ = f.outbox.Enqueue(ctx, outbox.EventTypePasswordResetRequestedV1, event)
+		}
+	}
+	return nil
+}
+
+// CompletePasswordReset validates token and updates password.
+func (f *facadeImpl) CompletePasswordReset(ctx context.Context, dto PasswordResetCompletionDTO) error {
+	// 1. Validate password length
+	if len(dto.NewPassword) < 8 {
+		return domain.ErrPasswordTooShort
+	}
+
+	// 2. Find and validate token
+	token, err := f.service.FindValidPasswordResetToken(ctx, dto.AccountID, dto.RawToken)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResetToken) {
+			return domain.ErrInvalidResetToken
+		}
+		return fmt.Errorf("find token: %w", err)
+	}
+
+	// 3. Update password
+	if err := f.service.SetPassword(ctx, dto.AccountID, dto.NewPassword); err != nil {
+		return fmt.Errorf("set password: %w", err)
+	}
+
+	// 4. Mark token as used
+	if err := f.service.MarkPasswordResetTokenUsed(ctx, token.ID); err != nil {
+		return fmt.Errorf("mark token used: %w", err)
+	}
+
+	// 5. Publish completion event
+	account, err := f.service.FindByID(ctx, dto.AccountID)
+	if err != nil {
+		slog.Warn("failed to find account for completion event", "error", err, "account_id", dto.AccountID)
+	} else {
+		_ = eventbus.Publish(ctx, f.bus, PasswordResetCompletedEvent{
+			AccountID: dto.AccountID,
+			Email:     account.Email,
+		})
+	}
+
+	return nil
 }

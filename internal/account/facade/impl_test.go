@@ -118,6 +118,18 @@ func (f *fakeService) ResolvePendingPartyLink(ctx context.Context, invitationID,
 	return nil
 }
 
+func (f *fakeService) CreatePasswordResetToken(ctx context.Context, accountID string) (domain.PasswordResetToken, string, error) {
+	return domain.PasswordResetToken{}, "", nil
+}
+
+func (f *fakeService) FindValidPasswordResetToken(ctx context.Context, accountID, rawToken string) (domain.PasswordResetToken, error) {
+	return domain.PasswordResetToken{}, nil
+}
+
+func (f *fakeService) MarkPasswordResetTokenUsed(ctx context.Context, tokenID string) error {
+	return nil
+}
+
 func TestSetActiveParty_DelegatesToService(t *testing.T) {
 	t.Parallel()
 
