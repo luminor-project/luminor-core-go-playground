@@ -327,3 +327,233 @@ func TestHandleSetPassword_PasswordTooShort(t *testing.T) {
 		t.Fatalf("expected SetPassword called once, got %d", fake.setPasswordCalls)
 	}
 }
+
+// Magic Link Handler Tests
+
+func TestHandleRequestMagicLink_Success(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		requestMagicLinkFunc: func(_ context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error {
+			if dto.Email != "user@example.com" {
+				t.Errorf("expected email 'user@example.com', got %q", dto.Email)
+			}
+			return nil
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	form := url.Values{}
+	form.Set("email", "user@example.com")
+	req := httptest.NewRequest(http.MethodPost, "/magic-link/request", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	h.HandleRequestMagicLink(rr, req)
+
+	// Should always show success page to prevent email enumeration
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	if fake.requestMagicLinkCalls != 1 {
+		t.Fatalf("expected RequestMagicLink called once, got %d", fake.requestMagicLinkCalls)
+	}
+}
+
+func TestHandleRequestMagicLink_EnumerationProtection(t *testing.T) {
+	t.Parallel()
+
+	// Simulate account not found - should still show success page
+	fake := &fakeAccountUseCases{
+		requestMagicLinkFunc: func(_ context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error {
+			// Simulate internal error (e.g., account not found)
+			return nil // Handler doesn't return error for account not found
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	form := url.Values{}
+	form.Set("email", "nonexistent@example.com")
+	req := httptest.NewRequest(http.MethodPost, "/magic-link/request", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	h.HandleRequestMagicLink(rr, req)
+
+	// Should still show success page (enumeration protection)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d (success page to prevent enumeration), got %d", http.StatusOK, rr.Code)
+	}
+}
+
+func TestHandleRequestMagicLink_EmptyEmail(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		requestMagicLinkFunc: func(_ context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error {
+			// Even with empty email, should still be called
+			return nil
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	// Send form with empty email - should still show success (enumeration protection)
+	form := url.Values{}
+	form.Set("email", "") // Empty email
+	req := httptest.NewRequest(http.MethodPost, "/magic-link/request", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	h.HandleRequestMagicLink(rr, req)
+
+	// Should show success page (enumeration protection - no validation error shown)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+}
+
+func TestHandleMagicLinkLogin_Success(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		validateMagicLinkFunc: func(_ context.Context, plaintextToken string) (facade.MagicLinkResultDTO, error) {
+			if plaintextToken != "valid-token-123" {
+				t.Errorf("expected token 'valid-token-123', got %q", plaintextToken)
+			}
+			return facade.MagicLinkResultDTO{
+				AccountID: "acct-123",
+				Email:     "user@example.com",
+				Roles:     []string{"user"},
+			}, nil
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate?token=valid-token-123", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should redirect to dashboard on success
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("expected status %d (redirect), got %d", http.StatusSeeOther, rr.Code)
+	}
+	location := rr.Header().Get("Location")
+	if !strings.Contains(location, "/dashboard") {
+		t.Errorf("expected redirect to dashboard, got %q", location)
+	}
+	if fake.validateMagicLinkCalls != 1 {
+		t.Fatalf("expected ValidateMagicLink called once, got %d", fake.validateMagicLinkCalls)
+	}
+}
+
+func TestHandleMagicLinkLogin_MissingToken(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should show invalid page with error message
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	// The handler renders MagicLinkInvalid template
+}
+
+func TestHandleMagicLinkLogin_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		validateMagicLinkFunc: func(_ context.Context, _ string) (facade.MagicLinkResultDTO, error) {
+			return facade.MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.invalid"}
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate?token=invalid-token", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should show invalid page
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+}
+
+func TestHandleMagicLinkLogin_ExpiredToken(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		validateMagicLinkFunc: func(_ context.Context, _ string) (facade.MagicLinkResultDTO, error) {
+			return facade.MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.expired"}
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate?token=expired-token", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should show invalid/expired page
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+}
+
+func TestHandleMagicLinkLogin_AlreadyUsedToken(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		validateMagicLinkFunc: func(_ context.Context, _ string) (facade.MagicLinkResultDTO, error) {
+			return facade.MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.alreadyUsed"}
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate?token=used-token", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should show invalid/already used page
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+}
+
+func TestHandleMagicLinkLogin_InternalError(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeAccountUseCases{
+		validateMagicLinkFunc: func(_ context.Context, _ string) (facade.MagicLinkResultDTO, error) {
+			return facade.MagicLinkResultDTO{}, errors.New("database connection failed")
+		},
+	}
+
+	h := NewHandler(fake, newTestSessionStore(), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/magic-link/validate?token=some-token", nil)
+	rr := httptest.NewRecorder()
+
+	h.HandleMagicLinkLogin(rr, req)
+
+	// Should return 500 on internal error
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+	}
+}
