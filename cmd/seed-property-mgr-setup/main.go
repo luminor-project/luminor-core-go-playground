@@ -89,10 +89,10 @@ func main() {
 	// ── Build all facades (mirrors cmd/server/main.go wiring) ─────────
 	orgService := orgdomain.NewOrgService(orginfra.NewPostgresRepository(db), clk)
 	oFacade := orgfacade.New(orgService, bus)
-	acctFacade := accountfacade.New(
-		accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk),
-		bus, outbox.NewPostgresStore(db),
-	)
+	accountRepo := accountinfra.NewPostgresRepository(db)
+	accountService := accountdomain.NewAccountService(accountRepo, clk)
+	magicLinkService := accountdomain.NewMagicLinkService(accountRepo, clk)
+	acctFacade := accountfacade.New(accountService, magicLinkService, bus, outbox.NewPostgresStore(db))
 	partyRepo := partyinfra.NewPostgresRepository(db)
 	partyFac := partyfacade.New(eventstore.NewPostgresStore(db), bus, clk, partyRepo)
 	subjectRepo := subjectinfra.NewPostgresRepository(db)

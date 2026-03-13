@@ -118,6 +118,26 @@ func (f *fakeService) ResolvePendingPartyLink(ctx context.Context, invitationID,
 	return nil
 }
 
+// fakeMagicLinkService is a test fake for the magicLinkService interface.
+type fakeMagicLinkService struct {
+	generateTokenFunc func(ctx context.Context, accountID string) (string, error)
+	validateTokenFunc func(ctx context.Context, plaintextToken string) (string, error)
+}
+
+func (f *fakeMagicLinkService) GenerateToken(ctx context.Context, accountID string) (string, error) {
+	if f.generateTokenFunc != nil {
+		return f.generateTokenFunc(ctx, accountID)
+	}
+	return "", nil
+}
+
+func (f *fakeMagicLinkService) ValidateToken(ctx context.Context, plaintextToken string) (string, error) {
+	if f.validateTokenFunc != nil {
+		return f.validateTokenFunc(ctx, plaintextToken)
+	}
+	return "", nil
+}
+
 func TestSetActiveParty_DelegatesToService(t *testing.T) {
 	t.Parallel()
 
@@ -130,7 +150,7 @@ func TestSetActiveParty_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	err := fac.SetActiveParty(context.Background(), "acct-1", "party-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -156,7 +176,7 @@ func TestLinkPartyToAccount_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	err := fac.LinkPartyToAccount(context.Background(), "acct-1", "party-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -175,7 +195,7 @@ func TestLinkPartyToAccount_AlreadyLinked(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	err := fac.LinkPartyToAccount(context.Background(), "acct-1", "party-1", "org-1")
 	if !errors.Is(err, ErrAlreadyLinked) {
 		t.Errorf("expected ErrAlreadyLinked, got %v", err)
@@ -194,7 +214,7 @@ func TestGetPartyMemberships_MapsCorrectly(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	memberships, err := fac.GetPartyMembershipsForAccount(context.Background(), "acct-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -224,7 +244,7 @@ func TestCreatePendingPartyLink_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	linkID, err := fac.CreatePendingPartyLink(context.Background(), "inv-1", "party-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -246,7 +266,7 @@ func TestResolvePendingPartyLink_DelegatesToService(t *testing.T) {
 		},
 	}
 
-	fac := New(svc, nil, nil)
+	fac := New(svc, &fakeMagicLinkService{}, nil, nil)
 	err := fac.ResolvePendingPartyLink(context.Background(), "inv-1", "acct-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

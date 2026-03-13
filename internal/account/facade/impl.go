@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -27,6 +28,11 @@ type accountService interface {
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
 }
 
+type magicLinkService interface {
+	GenerateToken(ctx context.Context, accountID string) (string, error)
+	ValidateToken(ctx context.Context, plaintextToken string) (string, error)
+}
+
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
 var _ interface {
 	Register(ctx context.Context, dto RegistrationDTO) (string, error)
@@ -44,20 +50,24 @@ var _ interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestMagicLink(ctx context.Context, dto MagicLinkRequestDTO, baseURL string) error
+	ValidateMagicLink(ctx context.Context, plaintextToken string) (MagicLinkResultDTO, error)
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
-	service accountService
-	bus     *eventbus.Bus
-	outbox  outbox.Store
+	service    accountService
+	magicLinks magicLinkService
+	bus        *eventbus.Bus
+	outbox     outbox.Store
 }
 
 // New creates a new account facade implementation.
-func New(service accountService, bus *eventbus.Bus, outboxStore outbox.Store) *facadeImpl {
+func New(service accountService, magicLinks magicLinkService, bus *eventbus.Bus, outboxStore outbox.Store) *facadeImpl {
 	return &facadeImpl{
-		service: service,
-		bus:     bus,
-		outbox:  outboxStore,
+		service:    service,
+		magicLinks: magicLinks,
+		bus:        bus,
+		outbox:     outboxStore,
 	}
 }
 
@@ -209,6 +219,83 @@ func (f *facadeImpl) ResolvePendingPartyLink(ctx context.Context, invitationID, 
 		return err
 	}
 	return nil
+}
+
+func (f *facadeImpl) RequestMagicLink(ctx context.Context, dto MagicLinkRequestDTO, baseURL string) error {
+	// Find the account by email
+	account, err := f.service.FindByEmail(ctx, dto.Email)
+	if err != nil {
+		if errors.Is(err, domain.ErrAccountNotFound) {
+			// Don't reveal whether the account exists - still return success
+			// This prevents email enumeration attacks
+			return nil
+		}
+		return fmt.Errorf("find account: %w", err)
+	}
+
+	// Generate the magic link token
+	plaintextToken, err := f.magicLinks.GenerateToken(ctx, account.ID)
+	if err != nil {
+		return fmt.Errorf("generate token: %w", err)
+	}
+
+	// Build the magic link URL
+	magicLinkURL := fmt.Sprintf("%s/magic-link/validate?token=%s", baseURL, plaintextToken)
+
+	// Publish the event to trigger email sending
+	if err := eventbus.Publish(ctx, f.bus, MagicLinkRequestedEvent{
+		AccountID:    account.ID,
+		Email:        account.Email,
+		MagicLinkURL: magicLinkURL,
+		ExpiresAt:    time.Now().Add(15 * time.Minute),
+	}); err != nil {
+		// Best-effort fallback for long-term reliability
+		if f.outbox != nil {
+			outboxErr := f.outbox.Enqueue(ctx, outbox.EventTypeMagicLinkRequestedV1, MagicLinkRequestedEvent{
+				AccountID:    account.ID,
+				Email:        account.Email,
+				MagicLinkURL: magicLinkURL,
+				ExpiresAt:    time.Now().Add(15 * time.Minute),
+			})
+			if outboxErr != nil {
+				return fmt.Errorf("publish MagicLinkRequestedEvent: %w (outbox enqueue failed: %v)", err, outboxErr)
+			}
+			slog.Warn("magic link requested event publish failed; enqueued to outbox", "error", err, "account_id", account.ID)
+		} else {
+			return fmt.Errorf("publish MagicLinkRequestedEvent: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (f *facadeImpl) ValidateMagicLink(ctx context.Context, plaintextToken string) (MagicLinkResultDTO, error) {
+	accountID, err := f.magicLinks.ValidateToken(ctx, plaintextToken)
+	if err != nil {
+		// Translate domain errors to validation errors with translation keys
+		if errors.Is(err, domain.ErrMagicLinkExpired) {
+			return MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.expired"}
+		}
+		if errors.Is(err, domain.ErrMagicLinkUsed) {
+			return MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.alreadyUsed"}
+		}
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			return MagicLinkResultDTO{}, &domain.MagicLinkValidationError{Key: "auth.magicLink.invalid"}
+		}
+		return MagicLinkResultDTO{}, fmt.Errorf("validate token: %w", err)
+	}
+
+	// Get account info
+	account, err := f.service.FindByID(ctx, accountID)
+	if err != nil {
+		return MagicLinkResultDTO{}, fmt.Errorf("find account: %w", err)
+	}
+
+	return MagicLinkResultDTO{
+		AccountID: account.ID,
+		Email:     account.Email,
+		Roles:     account.RoleStrings(),
+	}, nil
 }
 
 func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {

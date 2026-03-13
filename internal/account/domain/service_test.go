@@ -141,6 +141,27 @@ func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) er
 	return nil
 }
 
+// Magic link token methods - stub implementations for testing
+func (m *mockRepository) CreateMagicLinkToken(_ context.Context, token domain.MagicLinkToken) error {
+	return nil
+}
+
+func (m *mockRepository) FindMagicLinkTokenByHash(_ context.Context, tokenHash string) (domain.MagicLinkToken, error) {
+	return domain.MagicLinkToken{}, domain.ErrMagicLinkNotFound
+}
+
+func (m *mockRepository) MarkMagicLinkTokenUsed(_ context.Context, tokenID string, usedAt time.Time) error {
+	return nil
+}
+
+func (m *mockRepository) CountActiveMagicLinkTokens(_ context.Context, accountID string) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) InvalidateExistingMagicLinkTokens(_ context.Context, accountID string) error {
+	return nil
+}
+
 func TestRegister_Success(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()

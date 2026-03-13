@@ -42,6 +42,9 @@ templ SignIn(csrfToken, lastEmail, errorMsg string) {
 					{ i18n.T(ctx, "auth.signIn.noAccount") }
 					<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class="lmn-link-default font-semibold">{ i18n.T(ctx, "auth.signIn.createOne") }</a>
 				</p>
+				<p class="text-center lmn-text-small mt-2">
+					<a href={ i18n.LocalizedPath(ctx, "/magic-link/request") } class="lmn-link-default">{ i18n.T(ctx, "auth.magicLink.orUseMagicLink") }</a>
+				</p>
 			}
 		</div>
 	}

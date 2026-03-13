@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -279,4 +280,69 @@ func nilIfEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// Magic link token methods
+
+func (r *PostgresRepository) CreateMagicLinkToken(ctx context.Context, token domain.MagicLinkToken) error {
+	_, err := r.db.Exec(ctx,
+		`INSERT INTO magic_link_tokens (id, account_id, token_hash, expires_at, used_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		token.ID, token.AccountID, token.TokenHash, token.ExpiresAt, token.UsedAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert magic link token: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) FindMagicLinkTokenByHash(ctx context.Context, tokenHash string) (domain.MagicLinkToken, error) {
+	var token domain.MagicLinkToken
+	var usedAt *time.Time
+
+	err := r.db.QueryRow(ctx,
+		`SELECT id, account_id, token_hash, expires_at, used_at, created_at
+		 FROM magic_link_tokens WHERE token_hash = $1`, tokenHash).
+		Scan(&token.ID, &token.AccountID, &token.TokenHash, &token.ExpiresAt, &usedAt, &token.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.MagicLinkToken{}, domain.ErrMagicLinkNotFound
+		}
+		return domain.MagicLinkToken{}, fmt.Errorf("find magic link token: %w", err)
+	}
+
+	token.UsedAt = usedAt
+	return token, nil
+}
+
+func (r *PostgresRepository) MarkMagicLinkTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE magic_link_tokens SET used_at = $1 WHERE id = $2`,
+		usedAt, tokenID)
+	if err != nil {
+		return fmt.Errorf("mark magic link token used: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) CountActiveMagicLinkTokens(ctx context.Context, accountID string) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM magic_link_tokens
+		 WHERE account_id = $1 AND used_at IS NULL AND expires_at > now()`,
+		accountID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count active magic link tokens: %w", err)
+	}
+	return count, nil
+}
+
+func (r *PostgresRepository) InvalidateExistingMagicLinkTokens(ctx context.Context, accountID string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE magic_link_tokens SET used_at = now()
+		 WHERE account_id = $1 AND used_at IS NULL`,
+		accountID)
+	if err != nil {
+		return fmt.Errorf("invalidate existing magic link tokens: %w", err)
+	}
+	return nil
 }

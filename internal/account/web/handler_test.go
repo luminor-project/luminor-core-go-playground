@@ -35,6 +35,12 @@ type fakeAccountUseCases struct {
 
 	setPasswordFunc  func(ctx context.Context, accountID, newPassword string) error
 	setPasswordCalls int
+
+	requestMagicLinkFunc  func(ctx context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error
+	requestMagicLinkCalls int
+
+	validateMagicLinkFunc  func(ctx context.Context, plaintextToken string) (facade.MagicLinkResultDTO, error)
+	validateMagicLinkCalls int
 }
 
 func (f *fakeAccountUseCases) Authenticate(ctx context.Context, email, password string) (facade.AccountInfoDTO, error) {
@@ -75,6 +81,22 @@ func (f *fakeAccountUseCases) SetPassword(ctx context.Context, accountID, newPas
 		return f.setPasswordFunc(ctx, accountID, newPassword)
 	}
 	return nil
+}
+
+func (f *fakeAccountUseCases) RequestMagicLink(ctx context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error {
+	f.requestMagicLinkCalls++
+	if f.requestMagicLinkFunc != nil {
+		return f.requestMagicLinkFunc(ctx, dto, baseURL)
+	}
+	return nil
+}
+
+func (f *fakeAccountUseCases) ValidateMagicLink(ctx context.Context, plaintextToken string) (facade.MagicLinkResultDTO, error) {
+	f.validateMagicLinkCalls++
+	if f.validateMagicLinkFunc != nil {
+		return f.validateMagicLinkFunc(ctx, plaintextToken)
+	}
+	return facade.MagicLinkResultDTO{}, nil
 }
 
 func TestHandleSignIn_InvalidCredentials(t *testing.T) {

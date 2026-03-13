@@ -74,6 +74,8 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/config"
 	appCSRF "github.com/luminor-project/luminor-core-go-playground/internal/platform/csrf"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/database"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/email"
+	emailsubscriber "github.com/luminor-project/luminor-core-go-playground/internal/platform/email/subscriber"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventstore"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/flash"
@@ -101,7 +103,10 @@ func main() {
 	clk := clock.New()
 
 	// ── Build Verticals ────────────────────────────────────────────────
-	acctFacade := accountfacade.New(accountdomain.NewAccountService(accountinfra.NewPostgresRepository(db), clk), bus, outbox.NewPostgresStore(db))
+	accountRepo := accountinfra.NewPostgresRepository(db)
+	accountService := accountdomain.NewAccountService(accountRepo, clk)
+	magicLinkService := accountdomain.NewMagicLinkService(accountRepo, clk)
+	acctFacade := accountfacade.New(accountService, magicLinkService, bus, outbox.NewPostgresStore(db))
 	orgService := orgdomain.NewOrgService(orginfra.NewPostgresRepository(db), clk)
 	oFacade := orgfacade.New(orgService, bus)
 
@@ -123,6 +128,10 @@ func main() {
 	partysub.RegisterAccountJoinedOrgSubscriber(bus, partyFac, acctFacade)
 	subjectsub.RegisterProjectionSubscribers(bus, subjectRepo)
 	rentalsub.RegisterProjectionSubscribers(bus, rentalRepo)
+
+	// Wire email subscriber for magic links
+	emailSubscriber := emailsubscriber.NewMagicLinkSubscriber(email.NewLogSender())
+	emailSubscriber.Register(bus)
 
 	// ── Build HTTP Routes ──────────────────────────────────────────────
 	mux := http.NewServeMux()

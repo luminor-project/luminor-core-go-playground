@@ -32,6 +32,8 @@ type accountUseCases interface {
 	Register(ctx context.Context, dto facade.RegistrationDTO) (string, error)
 	GetAccountInfoByID(ctx context.Context, id string) (facade.AccountInfoDTO, error)
 	SetPassword(ctx context.Context, accountID, newPassword string) error
+	RequestMagicLink(ctx context.Context, dto facade.MagicLinkRequestDTO, baseURL string) error
+	ValidateMagicLink(ctx context.Context, plaintextToken string) (facade.MagicLinkResultDTO, error)
 }
 
 type sessionEnricher interface {
@@ -274,4 +276,77 @@ func (h *Handler) enrichSessionWithPartyAndOrg(ctx context.Context, sess *sessio
 
 func redirectWithLocale(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), path), http.StatusSeeOther)
+}
+
+// ShowRequestMagicLink renders the magic link request page.
+func (h *Handler) ShowRequestMagicLink(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.MagicLinkRequest(render.CSRFTokenFromContext(ctx), ""))
+}
+
+// HandleRequestMagicLink processes the magic link request form submission.
+func (h *Handler) HandleRequestMagicLink(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	email := r.FormValue("email")
+
+	// Build base URL for the magic link
+	baseURL := getBaseURL(r)
+
+	// Request the magic link (always succeeds from user perspective to prevent enumeration)
+	err := h.accounts.RequestMagicLink(r.Context(), facade.MagicLinkRequestDTO{Email: email}, baseURL)
+	if err != nil {
+		// Log the error but don't show it to the user
+		slog.Error("magic link request failed", "error", err, "email", email)
+	}
+
+	// Always show success message to prevent email enumeration
+	render.Page(w, r, templates.MagicLinkSent())
+}
+
+// HandleMagicLinkLogin validates a magic link token and logs the user in.
+func (h *Handler) HandleMagicLinkLogin(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+		render.Page(w, r.WithContext(ctx), templates.MagicLinkInvalid(render.CSRFTokenFromContext(ctx), i18n.T(r.Context(), "auth.magicLink.invalid")))
+		return
+	}
+
+	result, err := h.accounts.ValidateMagicLink(r.Context(), token)
+	if err != nil {
+		var validationErr *domain.MagicLinkValidationError
+		if errors.As(err, &validationErr) {
+			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+			render.Page(w, r.WithContext(ctx), templates.MagicLinkInvalid(render.CSRFTokenFromContext(ctx), i18n.T(r.Context(), validationErr.Key)))
+			return
+		}
+		slog.Error("magic link validation failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	// Create account info DTO from magic link result
+	info := facade.AccountInfoDTO{
+		ID:    result.AccountID,
+		Email: result.Email,
+		Roles: result.Roles,
+	}
+
+	// Set session
+	h.setSession(w, r, info)
+	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.auth.welcomeBack")
+	redirectWithLocale(w, r, "/dashboard")
+}
+
+// getBaseURL extracts the base URL from the request.
+func getBaseURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
 }

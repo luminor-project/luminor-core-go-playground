@@ -19,6 +19,11 @@ var (
 	ErrPendingLinkNotFound = errors.New("pending party link not found")
 )
 
+// MagicLinkValidationError represents a user-facing validation failure with a translation key.
+type MagicLinkValidationError struct{ Key string }
+
+func (e *MagicLinkValidationError) Error() string { return e.Key }
+
 // ValidationError represents a user-facing validation failure with a translation key.
 type ValidationError struct{ Key string }
 
@@ -50,6 +55,13 @@ type Repository interface {
 	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
 	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
 	DeletePendingPartyLink(ctx context.Context, id string) error
+
+	// Magic link token methods
+	CreateMagicLinkToken(ctx context.Context, token MagicLinkToken) error
+	FindMagicLinkTokenByHash(ctx context.Context, tokenHash string) (MagicLinkToken, error)
+	MarkMagicLinkTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error
+	CountActiveMagicLinkTokens(ctx context.Context, accountID string) (int, error)
+	InvalidateExistingMagicLinkTokens(ctx context.Context, accountID string) error
 }
 
 // AccountService handles core account business logic.

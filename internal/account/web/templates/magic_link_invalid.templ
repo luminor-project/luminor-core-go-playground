@@ -1,0 +1,31 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ MagicLinkInvalid(csrfToken, errorMsg string) {
+	@layouts.AppShell(i18n.T(ctx, "auth.magicLink.pageTitle")) {
+		<div data-test-id="magic-link-invalid-page">
+			@layouts.CenteredPanel() {
+				<div class="text-center">
+					<h1 class="lmn-h1" data-test-id="magic-link-invalid-heading">{ i18n.T(ctx, "auth.magicLink.invalidHeading") }</h1>
+					<p class="lmn-text-small mt-2">{ i18n.T(ctx, "auth.magicLink.invalidSubtitle") }</p>
+				</div>
+				if errorMsg != "" {
+					@layouts.StandardAlert("error", errorMsg)
+				}
+				@layouts.SurfaceCard() {
+					<div class="text-center space-y-4">
+						<div class="text-6xl">⚠️</div>
+						<p class="lmn-text-small">{ i18n.T(ctx, "auth.magicLink.requestNewLink") }</p>
+						<a href={ i18n.LocalizedPath(ctx, "/magic-link/request") } class="lmn-button-default inline-block">
+							{ i18n.T(ctx, "auth.magicLink.requestNewButton") }
+						</a>
+					</div>
+				}
+			}
+		</div>
+	}
+}
