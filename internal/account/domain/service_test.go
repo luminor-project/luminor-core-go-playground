@@ -141,6 +141,22 @@ func (m *mockRepository) DeletePendingPartyLink(_ context.Context, id string) er
 	return nil
 }
 
+func (m *mockRepository) CreateMagicLinkToken(_ context.Context, token domain.MagicLinkToken) error {
+	return nil
+}
+
+func (m *mockRepository) FindMagicLinkTokenByHash(_ context.Context, tokenHash string) (domain.MagicLinkToken, error) {
+	return domain.MagicLinkToken{}, domain.ErrMagicLinkTokenNotFound
+}
+
+func (m *mockRepository) MarkMagicLinkTokenUsed(_ context.Context, tokenID string, usedAt time.Time) error {
+	return nil
+}
+
+func (m *mockRepository) CountRecentMagicLinkTokensForAccount(_ context.Context, accountID string, since time.Time) (int, error) {
+	return 0, nil
+}
+
 func TestRegister_Success(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepo()

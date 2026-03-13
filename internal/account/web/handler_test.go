@@ -77,6 +77,14 @@ func (f *fakeAccountUseCases) SetPassword(ctx context.Context, accountID, newPas
 	return nil
 }
 
+func (f *fakeAccountUseCases) RequestMagicLink(ctx context.Context, dto facade.MagicLinkRequestDTO) error {
+	return nil
+}
+
+func (f *fakeAccountUseCases) VerifyMagicLink(ctx context.Context, rawToken string) (facade.MagicLinkResultDTO, error) {
+	return facade.MagicLinkResultDTO{}, nil
+}
+
 func TestHandleSignIn_InvalidCredentials(t *testing.T) {
 	t.Parallel()
 

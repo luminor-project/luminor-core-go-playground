@@ -39,3 +39,15 @@ type RegistrationDTO struct {
 	PlainPassword   string
 	MustSetPassword bool
 }
+
+// MagicLinkRequestDTO holds data for requesting a magic link.
+type MagicLinkRequestDTO struct {
+	Email string
+}
+
+// MagicLinkResultDTO holds the result of verifying a magic link.
+type MagicLinkResultDTO struct {
+	AccountID string
+	Email     string
+	Roles     []string
+}

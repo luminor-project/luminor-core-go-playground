@@ -1,0 +1,22 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ MagicLinkExpired(csrfToken string) {
+	@layouts.AppShell(i18n.T(ctx, "auth.magicLink.expiredPageTitle")) {
+		<div data-test-id="magic-link-expired-page">
+			@layouts.CenteredPanel() {
+				<div class="text-center space-y-6">
+					@layouts.StandardAlert("error", i18n.T(ctx, "auth.magicLink.expiredMessage"))
+					<p class="lmn-text-body">{ i18n.T(ctx, "auth.magicLink.requestNew") }</p>
+					<a href={ i18n.LocalizedPath(ctx, "/magic-link") } class="lmn-button-default">
+						{ i18n.T(ctx, "auth.magicLink.requestAnother") }
+					</a>
+				</div>
+			}
+		</div>
+	}
+}

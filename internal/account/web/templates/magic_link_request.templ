@@ -1,0 +1,50 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ MagicLinkRequest(csrfToken, errorMsg string) {
+	@layouts.AppShell(i18n.T(ctx, "auth.magicLink.pageTitle")) {
+		<div data-test-id="magic-link-request-page">
+			@layouts.CenteredPanel() {
+				<div class="text-center">
+					<h1 class="lmn-h1" data-test-id="magic-link-heading">{ i18n.T(ctx, "auth.magicLink.heading") }</h1>
+					<p class="lmn-text-small mt-2">{ i18n.T(ctx, "auth.magicLink.subtitle") }</p>
+				</div>
+				if errorMsg != "" {
+					@layouts.StandardAlert("error", errorMsg)
+				}
+				@layouts.SurfaceCard() {
+					<form action={ i18n.LocalizedPath(ctx, "/magic-link") } method="post" class="space-y-6">
+						<div>
+							<label for="email" class="lmn-form-label">{ i18n.T(ctx, "auth.common.email") }</label>
+							<input
+								id="email"
+								name="email"
+								type="email"
+								autocomplete="email"
+								required
+								placeholder={ i18n.T(ctx, "auth.common.emailPlaceholder") }
+								class="lmn-form-input"
+								data-test-id="magic-link-email"
+							/>
+						</div>
+						<button type="submit" class="lmn-button-default w-full" data-test-id="magic-link-submit">
+							{ i18n.T(ctx, "auth.magicLink.submit") }
+						</button>
+					</form>
+				}
+				<div class="text-center space-y-2">
+					<p class="lmn-text-small">
+						{ i18n.T(ctx, "auth.magicLink.preferPassword") }
+						<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class="lmn-link-default font-semibold">
+							{ i18n.T(ctx, "auth.signIn.submit") }
+						</a>
+					</p>
+				</div>
+			}
+		</div>
+	}
+}

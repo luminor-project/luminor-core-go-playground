@@ -118,6 +118,14 @@ func (f *fakeService) ResolvePendingPartyLink(ctx context.Context, invitationID,
 	return nil
 }
 
+func (f *fakeService) RequestMagicLink(ctx context.Context, accountID string) (domain.MagicLinkToken, string, error) {
+	return domain.MagicLinkToken{}, "", nil
+}
+
+func (f *fakeService) VerifyMagicLink(ctx context.Context, rawToken string) (string, error) {
+	return "", nil
+}
+
 func TestSetActiveParty_DelegatesToService(t *testing.T) {
 	t.Parallel()
 

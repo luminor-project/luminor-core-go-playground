@@ -18,6 +18,12 @@ func RegisterRoutes(mux *http.ServeMux, accounts accountUseCases, sessionStore *
 	mux.Handle("GET /sign-up", auth.RequireGuest(http.HandlerFunc(h.ShowSignUp)))
 	mux.Handle("POST /sign-up", auth.RequireGuest(http.HandlerFunc(h.HandleSignUp)))
 
+	// Magic link routes (guest-only)
+	mux.Handle("GET /magic-link", auth.RequireGuest(http.HandlerFunc(h.ShowMagicLinkRequest)))
+	mux.Handle("POST /magic-link", auth.RequireGuest(http.HandlerFunc(h.HandleMagicLinkRequest)))
+	mux.Handle("GET /magic-link-sent", auth.RequireGuest(http.HandlerFunc(h.ShowMagicLinkSent)))
+	mux.Handle("GET /auth/magic-link/verify", auth.RequireGuest(http.HandlerFunc(h.HandleMagicLinkVerify)))
+
 	// Auth-required routes
 	mux.Handle("POST /sign-out", auth.RequireAuth(http.HandlerFunc(h.HandleSignOut)))
 	mux.Handle("GET /dashboard", auth.RequireAuth(http.HandlerFunc(h.ShowDashboard)))

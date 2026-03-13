@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -25,6 +26,8 @@ type accountService interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestMagicLink(ctx context.Context, accountID string) (domain.MagicLinkToken, string, error)
+	VerifyMagicLink(ctx context.Context, rawToken string) (string, error)
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -44,6 +47,8 @@ var _ interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestMagicLink(ctx context.Context, dto MagicLinkRequestDTO) error
+	VerifyMagicLink(ctx context.Context, rawToken string) (MagicLinkResultDTO, error)
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -209,6 +214,81 @@ func (f *facadeImpl) ResolvePendingPartyLink(ctx context.Context, invitationID, 
 		return err
 	}
 	return nil
+}
+
+func (f *facadeImpl) RequestMagicLink(ctx context.Context, dto MagicLinkRequestDTO) error {
+	// Find account - if not found, still return success to prevent email enumeration
+	account, err := f.service.FindByEmail(ctx, dto.Email)
+	if err != nil {
+		if errors.Is(err, domain.ErrAccountNotFound) {
+			slog.Info("magic link requested for non-existent account", "email", dto.Email)
+			return nil
+		}
+		return fmt.Errorf("find account: %w", err)
+	}
+
+	// Request magic link (includes rate limiting)
+	token, rawToken, err := f.service.RequestMagicLink(ctx, account.ID)
+	if err != nil {
+		if errors.Is(err, domain.ErrMagicLinkRateLimitExceeded) {
+			slog.Warn("magic link rate limit exceeded", "account_id", account.ID)
+			// Still return nil to prevent enumeration, but email won't be sent
+			return nil
+		}
+		return fmt.Errorf("request magic link: %w", err)
+	}
+
+	// Publish event for email sending
+	event := MagicLinkRequestedEvent{
+		AccountID: account.ID,
+		Email:     account.Email,
+		RawToken:  rawToken,
+		ExpiresAt: token.ExpiresAt,
+	}
+
+	if err := eventbus.Publish(ctx, f.bus, event); err != nil {
+		// Fallback to outbox for reliability
+		if f.outbox != nil {
+			outboxErr := f.outbox.Enqueue(ctx, outbox.EventTypeMagicLinkRequestedV1, event)
+			if outboxErr != nil {
+				return fmt.Errorf("publish MagicLinkRequestedEvent: %w (outbox enqueue failed: %v)", err, outboxErr)
+			}
+			slog.Warn("magic link requested event publish failed; enqueued to outbox", "error", err, "account_id", account.ID)
+		} else {
+			return fmt.Errorf("publish MagicLinkRequestedEvent: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (f *facadeImpl) VerifyMagicLink(ctx context.Context, rawToken string) (MagicLinkResultDTO, error) {
+	accountID, err := f.service.VerifyMagicLink(ctx, rawToken)
+	if err != nil {
+		if errors.Is(err, domain.ErrMagicLinkTokenExpired) {
+			return MagicLinkResultDTO{}, err
+		}
+		return MagicLinkResultDTO{}, fmt.Errorf("verify magic link: %w", err)
+	}
+
+	// Get account info
+	account, err := f.service.FindByID(ctx, accountID)
+	if err != nil {
+		return MagicLinkResultDTO{}, fmt.Errorf("find account: %w", err)
+	}
+
+	// Publish event for audit logging
+	_ = eventbus.Publish(ctx, f.bus, MagicLinkUsedEvent{
+		AccountID: account.ID,
+		Email:     account.Email,
+		UsedAt:    time.Now(),
+	})
+
+	return MagicLinkResultDTO{
+		AccountID: account.ID,
+		Email:     account.Email,
+		Roles:     account.RoleStrings(),
+	}, nil
 }
 
 func toAccountInfoDTO(a domain.AccountCore) AccountInfoDTO {

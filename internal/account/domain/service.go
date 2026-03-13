@@ -50,6 +50,12 @@ type Repository interface {
 	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
 	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
 	DeletePendingPartyLink(ctx context.Context, id string) error
+
+	// Magic link token methods
+	CreateMagicLinkToken(ctx context.Context, token MagicLinkToken) error
+	FindMagicLinkTokenByHash(ctx context.Context, tokenHash string) (MagicLinkToken, error)
+	MarkMagicLinkTokenUsed(ctx context.Context, tokenID string, usedAt time.Time) error
+	CountRecentMagicLinkTokensForAccount(ctx context.Context, accountID string, since time.Time) (int, error)
 }
 
 // AccountService handles core account business logic.
@@ -221,4 +227,58 @@ func (s *AccountService) ResolvePendingPartyLink(ctx context.Context, invitation
 	}
 
 	return s.repo.DeletePendingPartyLink(ctx, link.ID)
+}
+
+// RequestMagicLink creates a magic link token for an account after rate limit check.
+func (s *AccountService) RequestMagicLink(ctx context.Context, accountID string) (MagicLinkToken, string, error) {
+	// Check rate limit
+	oneHourAgo := s.clock.Now().Add(-time.Hour)
+	recentCount, err := s.repo.CountRecentMagicLinkTokensForAccount(ctx, accountID, oneHourAgo)
+	if err != nil {
+		return MagicLinkToken{}, "", fmt.Errorf("check rate limit: %w", err)
+	}
+	if recentCount >= MaxMagicLinksPerHour {
+		return MagicLinkToken{}, "", ErrMagicLinkRateLimitExceeded
+	}
+
+	// Generate token
+	token, rawToken, err := GenerateMagicLinkToken(accountID, s.clock)
+	if err != nil {
+		return MagicLinkToken{}, "", fmt.Errorf("generate magic link token: %w", err)
+	}
+
+	// Save token
+	if err := s.repo.CreateMagicLinkToken(ctx, token); err != nil {
+		return MagicLinkToken{}, "", fmt.Errorf("save magic link token: %w", err)
+	}
+
+	return token, rawToken, nil
+}
+
+// VerifyMagicLink validates a magic link token and returns the associated account ID.
+func (s *AccountService) VerifyMagicLink(ctx context.Context, rawToken string) (string, error) {
+	tokenHash := HashToken(rawToken)
+
+	token, err := s.repo.FindMagicLinkTokenByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, ErrMagicLinkTokenNotFound) {
+			return "", ErrMagicLinkTokenExpired
+		}
+		return "", fmt.Errorf("find magic link token: %w", err)
+	}
+
+	// Validate token
+	if !token.IsValid(s.clock.Now()) {
+		return "", ErrMagicLinkTokenExpired
+	}
+
+	// Mark as used
+	if err := s.repo.MarkMagicLinkTokenUsed(ctx, token.ID, s.clock.Now()); err != nil {
+		if errors.Is(err, ErrMagicLinkTokenAlreadyUsed) {
+			return "", ErrMagicLinkTokenExpired
+		}
+		return "", fmt.Errorf("mark magic link token used: %w", err)
+	}
+
+	return token.AccountID, nil
 }

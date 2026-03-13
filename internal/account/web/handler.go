@@ -32,6 +32,8 @@ type accountUseCases interface {
 	Register(ctx context.Context, dto facade.RegistrationDTO) (string, error)
 	GetAccountInfoByID(ctx context.Context, id string) (facade.AccountInfoDTO, error)
 	SetPassword(ctx context.Context, accountID, newPassword string) error
+	RequestMagicLink(ctx context.Context, dto facade.MagicLinkRequestDTO) error
+	VerifyMagicLink(ctx context.Context, rawToken string) (facade.MagicLinkResultDTO, error)
 }
 
 type sessionEnricher interface {
@@ -274,4 +276,69 @@ func (h *Handler) enrichSessionWithPartyAndOrg(ctx context.Context, sess *sessio
 
 func redirectWithLocale(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), path), http.StatusSeeOther)
+}
+
+// ShowMagicLinkRequest renders the magic link request page.
+func (h *Handler) ShowMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.MagicLinkRequest(render.CSRFTokenFromContext(ctx), ""))
+}
+
+// HandleMagicLinkRequest processes magic link request form submission.
+func (h *Handler) HandleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	email := r.FormValue("email")
+
+	// Always show success to prevent email enumeration
+	err := h.accounts.RequestMagicLink(r.Context(), facade.MagicLinkRequestDTO{Email: email})
+	if err != nil {
+		slog.Error("magic link request failed", "error", err, "email", email)
+		// Don't expose error to user
+	}
+
+	// Redirect to success page (which shows "check your email" message)
+	redirectWithLocale(w, r, "/magic-link-sent")
+}
+
+// ShowMagicLinkSent renders the post-request confirmation page.
+func (h *Handler) ShowMagicLinkSent(w http.ResponseWriter, r *http.Request) {
+	ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+	render.Page(w, r.WithContext(ctx), templates.MagicLinkSent())
+}
+
+// HandleMagicLinkVerify validates token and authenticates user.
+func (h *Handler) HandleMagicLinkVerify(w http.ResponseWriter, r *http.Request) {
+	rawToken := r.URL.Query().Get("token")
+	if rawToken == "" {
+		ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+		render.Page(w, r.WithContext(ctx), templates.MagicLinkExpired(render.CSRFTokenFromContext(ctx)))
+		return
+	}
+
+	result, err := h.accounts.VerifyMagicLink(r.Context(), rawToken)
+	if err != nil {
+		if errors.Is(err, domain.ErrMagicLinkTokenExpired) {
+			ctx := render.WithCSRFToken(r.Context(), appCSRF.Token(r))
+			render.Page(w, r.WithContext(ctx), templates.MagicLinkExpired(render.CSRFTokenFromContext(ctx)))
+			return
+		}
+		slog.Error("magic link verification failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	// Create session (same as normal login)
+	info := facade.AccountInfoDTO{
+		ID:    result.AccountID,
+		Email: result.Email,
+		Roles: result.Roles,
+	}
+
+	h.setSession(w, r, info)
+	flash.SetKey(w, r, h.sessionStore, flash.TypeSuccess, "flash.auth.welcomeBack")
+	redirectWithLocale(w, r, "/dashboard")
 }

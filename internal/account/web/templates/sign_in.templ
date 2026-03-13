@@ -38,10 +38,17 @@ templ SignIn(csrfToken, lastEmail, errorMsg string) {
 						<button type="submit" class="lmn-button-default w-full" data-test-id="sign-in-submit">{ i18n.T(ctx, "auth.signIn.submit") }</button>
 					</form>
 				}
-				<p class="text-center lmn-text-small">
-					{ i18n.T(ctx, "auth.signIn.noAccount") }
-					<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class="lmn-link-default font-semibold">{ i18n.T(ctx, "auth.signIn.createOne") }</a>
-				</p>
+				<div class="text-center space-y-2">
+					<p class="lmn-text-small">
+						<a href={ i18n.LocalizedPath(ctx, "/magic-link") } class="lmn-link-secondary">
+							{ i18n.T(ctx, "auth.signIn.useMagicLink") }
+						</a>
+					</p>
+					<p class="lmn-text-small">
+						{ i18n.T(ctx, "auth.signIn.noAccount") }
+						<a href={ i18n.LocalizedPath(ctx, "/sign-up") } class="lmn-link-default font-semibold">{ i18n.T(ctx, "auth.signIn.createOne") }</a>
+					</p>
+				</div>
 			}
 		</div>
 	}

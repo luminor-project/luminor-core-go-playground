@@ -1,0 +1,25 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ MagicLinkSent() {
+	@layouts.AppShell(i18n.T(ctx, "auth.magicLink.sentPageTitle")) {
+		<div data-test-id="magic-link-sent-page">
+			@layouts.CenteredPanel() {
+				<div class="text-center space-y-6">
+					@layouts.StandardAlert("success", i18n.T(ctx, "auth.magicLink.checkEmail"))
+					<div class="lmn-surface-card p-6">
+						<p class="lmn-text-body mb-4">{ i18n.T(ctx, "auth.magicLink.instructions") }</p>
+						<p class="lmn-text-small text-gray-600">{ i18n.T(ctx, "auth.magicLink.expiryNotice") }</p>
+					</div>
+					<a href={ i18n.LocalizedPath(ctx, "/sign-in") } class="lmn-link-default">
+						{ i18n.T(ctx, "auth.magicLink.backToSignIn") }
+					</a>
+				</div>
+			}
+		</div>
+	}
+}
