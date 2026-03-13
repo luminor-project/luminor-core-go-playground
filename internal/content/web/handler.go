@@ -34,3 +34,8 @@ func (h *Handler) ShowLivingStyleguide(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ShowStyleguideWorkbench(w http.ResponseWriter, r *http.Request) {
 	render.Page(w, r, templates.StyleguideWorkbench())
 }
+
+// ShowPricing renders the pricing page.
+func (h *Handler) ShowPricing(w http.ResponseWriter, r *http.Request) {
+	render.Page(w, r, templates.Pricing())
+}

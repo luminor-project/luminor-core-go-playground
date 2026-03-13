@@ -1,0 +1,142 @@
+package templates
+
+import (
+	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+)
+
+templ Pricing() {
+	@layouts.FullContent(i18n.T(ctx, "pricing.title")) {
+		<div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+			<div class="text-center mb-12">
+				<h1 class="lmn-pagetitle mb-4">{ i18n.T(ctx, "pricing.title") }</h1>
+				<p class="lmn-text text-lg max-w-2xl mx-auto">
+					{ i18n.T(ctx, "pricing.subtitle") }
+				</p>
+			</div>
+
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+				<!-- Free Tier -->
+				<div class="lmn-card border-2 border-gray-200">
+					<div class="lmn-card-header">
+						<h2 class="lmn-h3">{ i18n.T(ctx, "pricing.tier.free.name") }</h2>
+						<p class="lmn-text text-3xl font-bold mt-2">
+							{ i18n.T(ctx, "pricing.tier.free.price") }
+						</p>
+						<p class="lmn-text text-sm mt-1">
+							{ i18n.T(ctx, "pricing.tier.free.period") }
+						</p>
+					</div>
+					<div class="lmn-card-content">
+						<ul class="space-y-3">
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.free.feature1") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.free.feature2") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.free.feature3") }</span>
+							</li>
+						</ul>
+					</div>
+					<div class="lmn-card-footer">
+						<button class="lmn-button lmn-button-secondary w-full">
+							{ i18n.T(ctx, "pricing.tier.free.cta") }
+						</button>
+					</div>
+				</div>
+
+				<!-- Pro Tier -->
+				<div class="lmn-card border-2 border-blue-500 relative">
+					<div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+						<span class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+							{ i18n.T(ctx, "pricing.tier.pro.badge") }
+						</span>
+					</div>
+					<div class="lmn-card-header pt-6">
+						<h2 class="lmn-h3">{ i18n.T(ctx, "pricing.tier.pro.name") }</h2>
+						<p class="lmn-text text-3xl font-bold mt-2">
+							{ i18n.T(ctx, "pricing.tier.pro.price") }
+						</p>
+						<p class="lmn-text text-sm mt-1">
+							{ i18n.T(ctx, "pricing.tier.pro.period") }
+						</p>
+					</div>
+					<div class="lmn-card-content">
+						<ul class="space-y-3">
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.pro.feature1") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.pro.feature2") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.pro.feature3") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.pro.feature4") }</span>
+							</li>
+						</ul>
+					</div>
+					<div class="lmn-card-footer">
+						<button class="lmn-button lmn-button-primary w-full">
+							{ i18n.T(ctx, "pricing.tier.pro.cta") }
+						</button>
+					</div>
+				</div>
+
+				<!-- Enterprise Tier -->
+				<div class="lmn-card border-2 border-gray-200">
+					<div class="lmn-card-header">
+						<h2 class="lmn-h3">{ i18n.T(ctx, "pricing.tier.enterprise.name") }</h2>
+						<p class="lmn-text text-3xl font-bold mt-2">
+							{ i18n.T(ctx, "pricing.tier.enterprise.price") }
+						</p>
+						<p class="lmn-text text-sm mt-1">
+							{ i18n.T(ctx, "pricing.tier.enterprise.period") }
+						</p>
+					</div>
+					<div class="lmn-card-content">
+						<ul class="space-y-3">
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.enterprise.feature1") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.enterprise.feature2") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.enterprise.feature3") }</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<span class="text-green-500">✓</span>
+								<span class="lmn-text">{ i18n.T(ctx, "pricing.tier.enterprise.feature4") }</span>
+							</li>
+						</ul>
+					</div>
+					<div class="lmn-card-footer">
+						<button class="lmn-button lmn-button-secondary w-full">
+							{ i18n.T(ctx, "pricing.tier.enterprise.cta") }
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="text-center mt-12 max-w-2xl mx-auto">
+				<p class="lmn-text text-sm">
+					{ i18n.T(ctx, "pricing.disclaimer") }
+				</p>
+			</div>
+		</div>
+	}
+}
