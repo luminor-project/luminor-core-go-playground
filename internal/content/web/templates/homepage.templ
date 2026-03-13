@@ -3,9 +3,10 @@ package templates
 import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/common/web/templates/layouts"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
+	"github.com/luminor-project/luminor-core-go-playground/internal/content/domain"
 )
 
-templ Homepage() {
+templ Homepage(tod domain.TimeOfDay) {
 	@layouts.FullContent(i18n.T(ctx, "homepage.title")) {
 		<div class="py-12 sm:py-16 space-y-14">
 			<section class="lmn-hero-shell">
@@ -22,28 +23,12 @@ templ Homepage() {
 					</div>
 					<p class="lmn-text-small mt-6">{ i18n.T(ctx, "homepage.hero.caption") }</p>
 				</div>
-			</section>
+</section>
 
-			<section class="grid grid-cols-1 md:grid-cols-3 gap-5">
-				<div class="lmn-stat-card">
-					<div class="lmn-card-content">
-						<p class="lmn-stat-value">98%</p>
-						<p class="lmn-stat-label">{ i18n.T(ctx, "homepage.stats.coverage") }</p>
-					</div>
-				</div>
-				<div class="lmn-stat-card">
-					<div class="lmn-card-content">
-						<p class="lmn-stat-value">24/7</p>
-						<p class="lmn-stat-label">{ i18n.T(ctx, "homepage.stats.reliability") }</p>
-					</div>
-				</div>
-				<div class="lmn-stat-card">
-					<div class="lmn-card-content">
-						<p class="lmn-stat-value">1x</p>
-						<p class="lmn-stat-label">{ i18n.T(ctx, "homepage.stats.singleSource") }</p>
-					</div>
-				</div>
-			</section>
+<section class="lmn-greeting">
+    <p class="lmn-text">{ greetingMessage(tod) }</p>
+</section>
+
 
 			<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div class="lmn-card lmn-card-hover">
@@ -66,5 +51,18 @@ templ Homepage() {
 				</div>
 			</section>
 		</div>
-	}
+}
+
+templ greetingMessage(tod domain.TimeOfDay) {
+    switch tod {
+    case domain.Morning:
+        { i18n.T(ctx, "homepage.greeting.morning") }
+    case domain.Afternoon:
+        { i18n.T(ctx, "homepage.greeting.afternoon") }
+    case domain.Evening:
+        { i18n.T(ctx, "homepage.greeting.evening") }
+    default:
+        { i18n.T(ctx, "homepage.greeting.night") }
+    }
+}
 }

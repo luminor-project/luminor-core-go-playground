@@ -3,21 +3,27 @@ package web
 import (
 	"net/http"
 
+	"github.com/luminor-project/luminor-core-go-playground/internal/content/domain"
 	"github.com/luminor-project/luminor-core-go-playground/internal/content/web/templates"
+	"github.com/luminor-project/luminor-core-go-playground/internal/platform/clock"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
 )
 
 // Handler handles content-related HTTP requests.
-type Handler struct{}
+type Handler struct {
+	clock clock.Clock
+}
 
 // NewHandler creates a new content handler.
 func NewHandler() *Handler {
-	return &Handler{}
+	return &Handler{clock: clock.New()}
 }
 
 // ShowHomepage renders the homepage.
 func (h *Handler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
-	render.Page(w, r, templates.Homepage())
+	now := h.clock.Now()
+	tod := domain.DetermineTimeOfDay(now)
+	render.Page(w, r, templates.Homepage(tod))
 }
 
 // ShowAbout renders the about page.
