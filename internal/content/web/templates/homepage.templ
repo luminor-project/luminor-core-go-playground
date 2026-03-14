@@ -5,11 +5,14 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 )
 
-templ Homepage() {
+templ Homepage(greeting string) {
 	@layouts.FullContent(i18n.T(ctx, "homepage.title")) {
 		<div class="py-12 sm:py-16 space-y-14">
 			<section class="lmn-hero-shell">
 				<div class="lmn-card-content text-center py-12 sm:py-16">
+					<div class="mb-6">
+						<p class="lmn-text-secondary italic">{ greeting }</p>
+					</div>
 					<h1 class="lmn-h1-gradient">
 						<span class="lmn-h1-gradient-span">{ i18n.T(ctx, "homepage.hero.title") }</span>
 					</h1>

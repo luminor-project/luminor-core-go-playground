@@ -8,16 +8,21 @@ import (
 )
 
 // Handler handles content-related HTTP requests.
-type Handler struct{}
+type Handler struct {
+	greetingProvider *GreetingProvider
+}
 
 // NewHandler creates a new content handler.
 func NewHandler() *Handler {
-	return &Handler{}
+	return &Handler{
+		greetingProvider: NewGreetingProvider(),
+	}
 }
 
 // ShowHomepage renders the homepage.
 func (h *Handler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
-	render.Page(w, r, templates.Homepage())
+	greeting := h.greetingProvider.GetRandomGreeting()
+	render.Page(w, r, templates.Homepage(greeting))
 }
 
 // ShowAbout renders the about page.
