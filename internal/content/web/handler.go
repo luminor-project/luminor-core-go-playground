@@ -3,21 +3,32 @@ package web
 import (
 	"net/http"
 
+	"github.com/luminor-project/luminor-core-go-playground/internal/content/config"
 	"github.com/luminor-project/luminor-core-go-playground/internal/content/web/templates"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/render"
 )
 
-// Handler handles content-related HTTP requests.
-type Handler struct{}
+// GreetingsProvider provides random greetings for display.
+type GreetingsProvider interface {
+	GetGreeting() config.Greeting
+}
 
-// NewHandler creates a new content handler.
-func NewHandler() *Handler {
-	return &Handler{}
+// Handler handles content-related HTTP requests.
+type Handler struct {
+	greetings GreetingsProvider
+}
+
+// NewHandler creates a new content handler with the provided dependencies.
+func NewHandler(greetings GreetingsProvider) *Handler {
+	return &Handler{
+		greetings: greetings,
+	}
 }
 
 // ShowHomepage renders the homepage.
 func (h *Handler) ShowHomepage(w http.ResponseWriter, r *http.Request) {
-	render.Page(w, r, templates.Homepage())
+	greeting := h.greetings.GetGreeting()
+	render.Page(w, r, templates.Homepage(greeting.Text))
 }
 
 // ShowAbout renders the about page.

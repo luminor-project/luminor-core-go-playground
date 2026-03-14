@@ -5,7 +5,7 @@ import (
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/i18n"
 )
 
-templ Homepage() {
+templ Homepage(greeting string) {
 	@layouts.FullContent(i18n.T(ctx, "homepage.title")) {
 		<div class="py-12 sm:py-16 space-y-14">
 			<section class="lmn-hero-shell">
@@ -13,6 +13,11 @@ templ Homepage() {
 					<h1 class="lmn-h1-gradient">
 						<span class="lmn-h1-gradient-span">{ i18n.T(ctx, "homepage.hero.title") }</span>
 					</h1>
+					if greeting != "" {
+						<p class="text-2xl font-medium text-gray-600 mt-4">
+							{ greeting }
+						</p>
+					}
 					<p class="lmn-text mt-6 max-w-2xl mx-auto">
 						{ i18n.T(ctx, "homepage.hero.subtitle") }
 					</p>

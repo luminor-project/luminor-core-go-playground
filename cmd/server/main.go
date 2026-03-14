@@ -27,6 +27,7 @@ import (
 	orgweb "github.com/luminor-project/luminor-core-go-playground/internal/organization/web"
 
 	// Content vertical
+	contentconfig "github.com/luminor-project/luminor-core-go-playground/internal/content/config"
 	contentweb "github.com/luminor-project/luminor-core-go-playground/internal/content/web"
 
 	// RAG vertical
@@ -125,9 +126,11 @@ func main() {
 	rentalsub.RegisterProjectionSubscribers(bus, rentalRepo)
 
 	// ── Build HTTP Routes ──────────────────────────────────────────────
+	greetingsCfg := contentconfig.NewGreetingsConfiguration()
+
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	contentweb.RegisterRoutes(mux, !cfg.IsProduction())
+	contentweb.RegisterRoutes(mux, !cfg.IsProduction(), greetingsCfg)
 	accountweb.RegisterRoutes(mux, acctFacade, sessionStore, &sessionEnricherAdapter{partyFac: partyFac, orgFacade: oFacade})
 	orgweb.RegisterRoutes(mux, orgService, oFacade, acctFacade, sessionStore)
 	ragweb.RegisterRoutes(mux, rFacade)
