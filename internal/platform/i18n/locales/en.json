@@ -40,6 +40,7 @@
   "homepage.feature.composable.body": "Atoms and molecules prevent drift as feature teams build new screens over time.",
   "homepage.feature.docs.title": "Living documentation",
   "homepage.feature.docs.body": "Styleguide examples are production classes, keeping docs and implementation aligned.",
+  "homepage.funny.message": "Why did the developer go broke? Because they used up all their cache!",
   "about.title": "About",
   "about.section.architecture.title": "Vertical Slice Architecture",
   "about.section.architecture.body": "Each feature is organized as a self-contained vertical with its own domain, facade, infrastructure, and web layers. Cross-vertical communication happens exclusively through facade interfaces and events.",

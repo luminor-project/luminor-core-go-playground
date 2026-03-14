@@ -40,6 +40,7 @@
   "homepage.feature.composable.body": "Atome und Molekuele verhindern visuelle Abweichung, wenn Teams neue Screens erstellen.",
   "homepage.feature.docs.title": "Lebende Dokumentation",
   "homepage.feature.docs.body": "Styleguide-Beispiele sind Produktionsklassen, sodass Doku und Umsetzung synchron bleiben.",
+  "homepage.funny.message": "Warum ging der Entwickler pleite? Weil er all seinen Cache aufgebraucht hat!",
   "about.title": "Ueber",
   "about.section.architecture.title": "Vertical-Slice-Architektur",
   "about.section.architecture.body": "Jedes Feature ist als eigenstaendiger Vertical mit Domain-, Facade-, Infrastruktur- und Web-Schicht organisiert. Kommunikation zwischen Verticals erfolgt ausschliesslich ueber Facade-Interfaces und Events.",

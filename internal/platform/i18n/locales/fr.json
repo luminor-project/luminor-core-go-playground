@@ -40,6 +40,7 @@
   "homepage.feature.composable.body": "Les atomes et molecules evitent la derive visuelle quand les equipes construisent de nouveaux ecrans.",
   "homepage.feature.docs.title": "Documentation vivante",
   "homepage.feature.docs.body": "Les exemples du styleguide utilisent les classes de production pour garder docs et implementation alignees.",
+  "homepage.funny.message": "Pourquoi le developpeur est-il devenu fauche ? Parce qu'il a utilise tout son cache !",
   "about.title": "A propos",
   "about.section.architecture.title": "Architecture en tranches verticales",
   "about.section.architecture.body": "Chaque fonctionnalite est organisee comme un vertical autonome avec ses couches domaine, facade, infrastructure et web. La communication inter-verticale passe exclusivement par les interfaces facade et les evenements.",
