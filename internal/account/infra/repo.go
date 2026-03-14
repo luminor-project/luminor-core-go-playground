@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -270,6 +271,67 @@ func (r *PostgresRepository) DeletePendingPartyLink(ctx context.Context, id stri
 	_, err := r.db.Exec(ctx, `DELETE FROM account_party_pending_links WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete pending party link: %w", err)
+	}
+	return nil
+}
+
+// Password reset token methods.
+
+func (r *PostgresRepository) CreatePasswordResetToken(ctx context.Context, token domain.PasswordResetToken) error {
+	// Delete any existing token for this account first (due to unique constraint)
+	_, err := r.db.Exec(ctx,
+		`DELETE FROM password_reset_tokens WHERE account_id = $1`,
+		token.AccountID)
+	if err != nil {
+		return fmt.Errorf("delete existing token: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx,
+		`INSERT INTO password_reset_tokens (id, account_id, token_hash, expires_at, used_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		token.ID, token.AccountID, token.TokenHash, token.ExpiresAt, token.UsedAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert password reset token: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) FindPasswordResetTokenByHash(ctx context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	var token domain.PasswordResetToken
+	var usedAt *time.Time
+
+	err := r.db.QueryRow(ctx,
+		`SELECT id, account_id, token_hash, expires_at, used_at, created_at
+		 FROM password_reset_tokens WHERE token_hash = $1`,
+		tokenHash).
+		Scan(&token.ID, &token.AccountID, &token.TokenHash, &token.ExpiresAt, &usedAt, &token.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PasswordResetToken{}, domain.ErrInvalidResetToken
+		}
+		return domain.PasswordResetToken{}, fmt.Errorf("find password reset token: %w", err)
+	}
+
+	token.UsedAt = usedAt
+	return token, nil
+}
+
+func (r *PostgresRepository) MarkPasswordResetTokenAsUsed(ctx context.Context, tokenHash string, usedAt time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = $1 WHERE token_hash = $2`,
+		usedAt, tokenHash)
+	if err != nil {
+		return fmt.Errorf("mark token as used: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`DELETE FROM password_reset_tokens WHERE expires_at < $1 OR used_at IS NOT NULL`,
+		before)
+	if err != nil {
+		return fmt.Errorf("delete expired tokens: %w", err)
 	}
 	return nil
 }

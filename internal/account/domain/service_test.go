@@ -474,3 +474,236 @@ func TestResolvePendingPartyLink_NotFound(t *testing.T) {
 		t.Errorf("expected ErrPendingLinkNotFound, got %v", err)
 	}
 }
+
+// Password reset token test helpers
+var tokens = make(map[string]domain.PasswordResetToken) // tokenHash -> token
+
+func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token domain.PasswordResetToken) error {
+	tokens[token.TokenHash] = token
+	return nil
+}
+
+func (m *mockRepository) FindPasswordResetTokenByHash(_ context.Context, tokenHash string) (domain.PasswordResetToken, error) {
+	token, ok := tokens[tokenHash]
+	if !ok {
+		return domain.PasswordResetToken{}, domain.ErrInvalidResetToken
+	}
+	return token, nil
+}
+
+func (m *mockRepository) MarkPasswordResetTokenAsUsed(_ context.Context, tokenHash string, usedAt time.Time) error {
+	token, ok := tokens[tokenHash]
+	if !ok {
+		return domain.ErrInvalidResetToken
+	}
+	token.UsedAt = &usedAt
+	tokens[tokenHash] = token
+	return nil
+}
+
+func (m *mockRepository) DeleteExpiredPasswordResetTokens(_ context.Context, before time.Time) error {
+	for hash, token := range tokens {
+		if token.ExpiresAt.Before(before) || token.UsedAt != nil {
+			delete(tokens, hash)
+		}
+	}
+	return nil
+}
+
+func TestCreatePasswordResetToken_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+
+	plainToken, err := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if plainToken == "" {
+		t.Error("expected non-empty token")
+	}
+
+	// Verify token exists
+	tokenHash := domain.HashToken(plainToken)
+	token, ok := tokens[tokenHash]
+	if !ok {
+		t.Fatal("expected token to be stored")
+	}
+
+	if token.AccountID != account.ID {
+		t.Errorf("expected account ID %q, got %q", account.ID, token.AccountID)
+	}
+
+	expectedExpiry := testClock.Now().Add(time.Hour)
+	if !token.ExpiresAt.Equal(expectedExpiry) {
+		t.Errorf("expected expiry %v, got %v", expectedExpiry, token.ExpiresAt)
+	}
+}
+
+func TestValidateResetToken_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	accountID, err := svc.ValidateResetToken(context.Background(), plainToken)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if accountID != account.ID {
+		t.Errorf("expected account ID %q, got %q", account.ID, accountID)
+	}
+}
+
+func TestValidateResetToken_Invalid(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	_, err := svc.ValidateResetToken(context.Background(), "invalid-token")
+	if !errors.Is(err, domain.ErrInvalidResetToken) {
+		t.Errorf("expected ErrInvalidResetToken, got %v", err)
+	}
+}
+
+func TestValidateResetToken_Expired(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	// Simulate time passing
+	futureClock := clock.NewFixed(testClock.Now().Add(2 * time.Hour))
+	svcWithFutureClock := domain.NewAccountService(repo, futureClock).WithBcryptCost(bcrypt.MinCost)
+
+	_, err := svcWithFutureClock.ValidateResetToken(context.Background(), plainToken)
+	if !errors.Is(err, domain.ErrResetTokenExpired) {
+		t.Errorf("expected ErrResetTokenExpired, got %v", err)
+	}
+}
+
+func TestValidateResetToken_AlreadyUsed(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	// Mark as used
+	tokenHash := domain.HashToken(plainToken)
+	token := tokens[tokenHash]
+	usedAt := testClock.Now()
+	token.UsedAt = &usedAt
+	tokens[tokenHash] = token
+
+	_, err := svc.ValidateResetToken(context.Background(), plainToken)
+	if !errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+		t.Errorf("expected ErrResetTokenAlreadyUsed, got %v", err)
+	}
+}
+
+func TestResetPassword_Success(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	err := svc.ResetPassword(context.Background(), plainToken, "newpassword456")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Old password should no longer work
+	_, err = svc.Authenticate(context.Background(), "test@example.com", "password123")
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Error("old password should no longer work")
+	}
+
+	// New password should work
+	_, err = svc.Authenticate(context.Background(), "test@example.com", "newpassword456")
+	if err != nil {
+		t.Errorf("new password should work, got: %v", err)
+	}
+
+	// Token should be marked as used
+	tokenHash := domain.HashToken(plainToken)
+	token := tokens[tokenHash]
+	if token.UsedAt == nil {
+		t.Error("expected token to be marked as used")
+	}
+}
+
+func TestResetPassword_TokenAlreadyUsed(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	// First reset
+	err := svc.ResetPassword(context.Background(), plainToken, "newpassword456")
+	if err != nil {
+		t.Fatalf("first reset failed: %v", err)
+	}
+
+	// Second reset with same token should fail
+	err = svc.ResetPassword(context.Background(), plainToken, "anotherpassword789")
+	if !errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+		t.Errorf("expected ErrResetTokenAlreadyUsed, got %v", err)
+	}
+}
+
+func TestResetPassword_ExpiredToken(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	// Simulate time passing
+	futureClock := clock.NewFixed(testClock.Now().Add(2 * time.Hour))
+	svcWithFutureClock := domain.NewAccountService(repo, futureClock).WithBcryptCost(bcrypt.MinCost)
+
+	err := svcWithFutureClock.ResetPassword(context.Background(), plainToken, "newpassword456")
+	if !errors.Is(err, domain.ErrResetTokenExpired) {
+		t.Errorf("expected ErrResetTokenExpired, got %v", err)
+	}
+}
+
+func TestResetPassword_PasswordTooShort(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	account, _ := svc.Register(context.Background(), "test@example.com", "password123")
+	plainToken, _ := svc.CreatePasswordResetToken(context.Background(), account.ID, time.Hour)
+
+	err := svc.ResetPassword(context.Background(), plainToken, "short")
+	if !errors.Is(err, domain.ErrPasswordTooShort) {
+		t.Errorf("expected ErrPasswordTooShort, got %v", err)
+	}
+}
+
+func TestResetPassword_InvalidToken(t *testing.T) {
+	t.Parallel()
+	repo := newMockRepo()
+	svc := domain.NewAccountService(repo, testClock).WithBcryptCost(bcrypt.MinCost)
+
+	err := svc.ResetPassword(context.Background(), "invalid-token", "newpassword456")
+	if !errors.Is(err, domain.ErrInvalidResetToken) {
+		t.Errorf("expected ErrInvalidResetToken, got %v", err)
+	}
+}

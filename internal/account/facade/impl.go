@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/luminor-project/luminor-core-go-playground/internal/account/domain"
 	"github.com/luminor-project/luminor-core-go-playground/internal/platform/eventbus"
@@ -25,6 +26,9 @@ type accountService interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (domain.PendingPartyLink, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	CreatePasswordResetToken(ctx context.Context, accountID string, expiryDuration time.Duration) (string, error)
+	ValidateResetToken(ctx context.Context, plainToken string) (string, error)
+	ResetPassword(ctx context.Context, plainToken, newPlainPassword string) error
 }
 
 // Compile-time interface assertion: facadeImpl satisfies all consumer interfaces.
@@ -44,6 +48,9 @@ var _ interface {
 	GetAccountIDsForParty(ctx context.Context, partyID string) ([]string, error)
 	CreatePendingPartyLink(ctx context.Context, invitationID, partyID, orgID string) (string, error)
 	ResolvePendingPartyLink(ctx context.Context, invitationID, accountID string) error
+	RequestPasswordReset(ctx context.Context, email string) (token string, accountID string, err error)
+	ResetPassword(ctx context.Context, token, newPassword string) error
+	ValidateResetToken(ctx context.Context, token string) (string, error)
 } = (*facadeImpl)(nil)
 
 type facadeImpl struct {
@@ -205,6 +212,55 @@ func (f *facadeImpl) ResolvePendingPartyLink(ctx context.Context, invitationID, 
 	if err != nil {
 		if errors.Is(err, domain.ErrPendingLinkNotFound) {
 			return ErrPendingLinkNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// RequestPasswordReset creates a password reset token for the given email.
+// Returns the plaintext token (to be emailed) and account ID. If the email doesn't exist,
+// returns empty values and nil error to prevent email enumeration.
+func (f *facadeImpl) RequestPasswordReset(ctx context.Context, email string) (token string, accountID string, err error) {
+	account, err := f.service.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrAccountNotFound) {
+			// Return empty values to prevent email enumeration
+			return "", "", nil
+		}
+		return "", "", fmt.Errorf("find account: %w", err)
+	}
+
+	// Generate token with 1 hour expiry
+	plainToken, err := f.service.CreatePasswordResetToken(ctx, account.ID, time.Hour)
+	if err != nil {
+		return "", "", fmt.Errorf("create reset token: %w", err)
+	}
+
+	return plainToken, account.ID, nil
+}
+
+// ValidateResetToken validates a password reset token and returns the account ID.
+func (f *facadeImpl) ValidateResetToken(ctx context.Context, token string) (string, error) {
+	accountID, err := f.service.ValidateResetToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResetToken) || errors.Is(err, domain.ErrResetTokenExpired) || errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+			return "", ErrInvalidResetToken
+		}
+		return "", err
+	}
+	return accountID, nil
+}
+
+// ResetPassword resets the password using a valid reset token.
+func (f *facadeImpl) ResetPassword(ctx context.Context, token, newPassword string) error {
+	err := f.service.ResetPassword(ctx, token, newPassword)
+	if err != nil {
+		if errors.Is(err, domain.ErrPasswordTooShort) {
+			return &domain.ValidationError{Key: "auth.validation.passwordTooShort"}
+		}
+		if errors.Is(err, domain.ErrInvalidResetToken) || errors.Is(err, domain.ErrResetTokenExpired) || errors.Is(err, domain.ErrResetTokenAlreadyUsed) {
+			return ErrInvalidResetToken
 		}
 		return err
 	}

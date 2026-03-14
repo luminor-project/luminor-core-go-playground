@@ -50,6 +50,12 @@ type Repository interface {
 	CreatePendingPartyLink(ctx context.Context, link PendingPartyLink) error
 	FindPendingPartyLinkByInvitationID(ctx context.Context, invitationID string) (PendingPartyLink, error)
 	DeletePendingPartyLink(ctx context.Context, id string) error
+
+	// Password reset token methods
+	CreatePasswordResetToken(ctx context.Context, token PasswordResetToken) error
+	FindPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
+	MarkPasswordResetTokenAsUsed(ctx context.Context, tokenHash string, usedAt time.Time) error
+	DeleteExpiredPasswordResetTokens(ctx context.Context, before time.Time) error
 }
 
 // AccountService handles core account business logic.
@@ -221,4 +227,100 @@ func (s *AccountService) ResolvePendingPartyLink(ctx context.Context, invitation
 	}
 
 	return s.repo.DeletePendingPartyLink(ctx, link.ID)
+}
+
+// CreatePasswordResetToken creates a new password reset token for an account.
+// Returns the plaintext token to be sent to the user.
+func (s *AccountService) CreatePasswordResetToken(ctx context.Context, accountID string, expiryDuration time.Duration) (string, error) {
+	plainToken, hashedToken, err := GenerateResetToken()
+	if err != nil {
+		return "", fmt.Errorf("generate reset token: %w", err)
+	}
+
+	token := PasswordResetToken{
+		AccountID: accountID,
+		TokenHash: hashedToken,
+		ExpiresAt: s.clock.Now().Add(expiryDuration),
+		CreatedAt: s.clock.Now(),
+	}
+
+	// Delete any existing token for this account first
+	if err := s.repo.ExecuteInTx(ctx, func(repo Repository) error {
+		return repo.CreatePasswordResetToken(ctx, token)
+	}); err != nil {
+		return "", fmt.Errorf("create password reset token: %w", err)
+	}
+
+	return plainToken, nil
+}
+
+// ValidateResetToken validates a password reset token and returns the associated account ID.
+func (s *AccountService) ValidateResetToken(ctx context.Context, plainToken string) (string, error) {
+	tokenHash := HashToken(plainToken)
+
+	token, err := s.repo.FindPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return "", ErrInvalidResetToken
+	}
+
+	if !token.IsValid(s.clock.Now()) {
+		if token.UsedAt != nil {
+			return "", ErrResetTokenAlreadyUsed
+		}
+		return "", ErrResetTokenExpired
+	}
+
+	return token.AccountID, nil
+}
+
+// ResetPassword resets an account's password using a valid reset token.
+func (s *AccountService) ResetPassword(ctx context.Context, plainToken, newPlainPassword string) error {
+	if len(newPlainPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	tokenHash := HashToken(plainToken)
+
+	token, err := s.repo.FindPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return ErrInvalidResetToken
+	}
+
+	now := s.clock.Now()
+	if !token.IsValid(now) {
+		if token.UsedAt != nil {
+			return ErrResetTokenAlreadyUsed
+		}
+		return ErrResetTokenExpired
+	}
+
+	// Update password and mark token as used in a transaction
+	if err := s.repo.ExecuteInTx(ctx, func(repo Repository) error {
+		account, err := repo.FindByID(ctx, token.AccountID)
+		if err != nil {
+			return fmt.Errorf("find account: %w", err)
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(newPlainPassword), s.bcryptCost)
+		if err != nil {
+			return fmt.Errorf("hash password: %w", err)
+		}
+
+		account.PasswordHash = string(hash)
+		account.MustSetPassword = false
+
+		if err := repo.Update(ctx, account); err != nil {
+			return fmt.Errorf("update account: %w", err)
+		}
+
+		if err := repo.MarkPasswordResetTokenAsUsed(ctx, tokenHash, now); err != nil {
+			return fmt.Errorf("mark token as used: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

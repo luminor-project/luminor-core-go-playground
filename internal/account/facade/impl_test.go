@@ -118,6 +118,29 @@ func (f *fakeService) ResolvePendingPartyLink(ctx context.Context, invitationID,
 	return nil
 }
 
+// Password reset methods.
+
+func (f *fakeService) CreatePasswordResetToken(ctx context.Context, accountID string, expiryDuration time.Duration) (string, error) {
+	return "test-token", nil
+}
+
+func (f *fakeService) ValidateResetToken(ctx context.Context, plainToken string) (string, error) {
+	if plainToken == "valid-token" {
+		return "account-1", nil
+	}
+	return "", domain.ErrInvalidResetToken
+}
+
+func (f *fakeService) ResetPassword(ctx context.Context, plainToken, newPlainPassword string) error {
+	if newPlainPassword == "short" {
+		return domain.ErrPasswordTooShort
+	}
+	if plainToken == "valid-token" {
+		return nil
+	}
+	return domain.ErrInvalidResetToken
+}
+
 func TestSetActiveParty_DelegatesToService(t *testing.T) {
 	t.Parallel()
 
@@ -256,5 +279,120 @@ func TestResolvePendingPartyLink_DelegatesToService(t *testing.T) {
 	}
 	if calledAcctID != "acct-1" {
 		t.Errorf("expected acct-1, got %q", calledAcctID)
+	}
+}
+
+func TestRequestPasswordReset_Success(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{
+		findByEmailFunc: func(_ context.Context, email string) (domain.AccountCore, error) {
+			if email == "test@example.com" {
+				return domain.AccountCore{ID: "acct-1", Email: email}, nil
+			}
+			return domain.AccountCore{}, domain.ErrAccountNotFound
+		},
+	}
+
+	fac := New(svc, nil, nil)
+	token, accountID, err := fac.RequestPasswordReset(context.Background(), "test@example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token == "" {
+		t.Error("expected non-empty token")
+	}
+	if accountID != "acct-1" {
+		t.Errorf("expected account ID 'acct-1', got %q", accountID)
+	}
+}
+
+func TestRequestPasswordReset_EmailNotFound(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{
+		findByEmailFunc: func(_ context.Context, email string) (domain.AccountCore, error) {
+			return domain.AccountCore{}, domain.ErrAccountNotFound
+		},
+	}
+
+	fac := New(svc, nil, nil)
+	token, accountID, err := fac.RequestPasswordReset(context.Background(), "nonexistent@example.com")
+	if err != nil {
+		t.Fatalf("expected no error for non-existent email, got: %v", err)
+	}
+	// Should return empty values to prevent email enumeration
+	if token != "" || accountID != "" {
+		t.Error("expected empty token and account ID for non-existent email")
+	}
+}
+
+func TestValidateResetToken_Success(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{}
+
+	fac := New(svc, nil, nil)
+	accountID, err := fac.ValidateResetToken(context.Background(), "valid-token")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if accountID != "account-1" {
+		t.Errorf("expected account ID 'account-1', got %q", accountID)
+	}
+}
+
+func TestValidateResetToken_Invalid(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{}
+
+	fac := New(svc, nil, nil)
+	_, err := fac.ValidateResetToken(context.Background(), "invalid-token")
+	if !errors.Is(err, ErrInvalidResetToken) {
+		t.Errorf("expected ErrInvalidResetToken, got %v", err)
+	}
+}
+
+func TestResetPassword_Success(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{}
+
+	fac := New(svc, nil, nil)
+	err := fac.ResetPassword(context.Background(), "valid-token", "newpassword123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResetPassword_PasswordTooShort(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{}
+
+	fac := New(svc, nil, nil)
+	err := fac.ResetPassword(context.Background(), "valid-token", "short")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var validationErr *domain.ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Errorf("expected ValidationError, got %v", err)
+	}
+	if validationErr != nil && validationErr.Key != "auth.validation.passwordTooShort" {
+		t.Errorf("expected key 'auth.validation.passwordTooShort', got %q", validationErr.Key)
+	}
+}
+
+func TestResetPassword_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeService{}
+
+	fac := New(svc, nil, nil)
+	err := fac.ResetPassword(context.Background(), "invalid-token", "newpassword123")
+	if !errors.Is(err, ErrInvalidResetToken) {
+		t.Errorf("expected ErrInvalidResetToken, got %v", err)
 	}
 }
