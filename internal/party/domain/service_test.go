@@ -185,8 +185,8 @@ func TestApply_PartyRegistered(t *testing.T) {
 func TestValidPartyKinds(t *testing.T) {
 	t.Parallel()
 	kinds := domain.ValidPartyKinds()
-	if len(kinds) != 3 {
-		t.Errorf("expected 3 valid party kinds, got %d", len(kinds))
+	if len(kinds) != 4 {
+		t.Errorf("expected 4 valid party kinds, got %d", len(kinds))
 	}
 }
 
@@ -200,6 +200,9 @@ func TestIsValidPartyKind(t *testing.T) {
 	}
 	if !domain.IsValidPartyKind(domain.PartyKindAssistant) {
 		t.Error("expected assistant to be valid")
+	}
+	if !domain.IsValidPartyKind(domain.PartyKindPropertyOwner) {
+		t.Error("expected property_owner to be valid")
 	}
 	if domain.IsValidPartyKind(domain.PartyKind("bogus")) {
 		t.Error("expected 'bogus' to be invalid")

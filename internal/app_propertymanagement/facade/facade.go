@@ -30,3 +30,18 @@ type InviteTenantDTO struct {
 	OrgID          string
 	ActorAccountID string
 }
+
+// CreatePropertyOwnerDTO holds data for creating a property owner party.
+type CreatePropertyOwnerDTO struct {
+	Name               string
+	OrgID              string
+	CreatedByAccountID string
+}
+
+// InvitePropertyOwnerDTO holds data for inviting a property owner to create an account.
+type InvitePropertyOwnerDTO struct {
+	PropertyOwnerPartyID string
+	Email                string
+	OrgID                string
+	ActorAccountID       string
+}

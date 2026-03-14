@@ -16,6 +16,7 @@
   "header.partyKind.tenant": "Mieter",
   "header.partyKind.property_manager": "Verwalter",
   "header.partyKind.assistant": "Assistent",
+  "header.partyKind.property_owner": "Eigentuemer",
   "header.language": "Sprache",
   "footer.tagline": "Designsystem-zentrierte Produktbasis fuer langlebige Webanwendungen.",
   "footer.copyright": "© 2025-2026 Luminor. Alle Rechte vorbehalten.",
@@ -210,5 +211,14 @@
   "pm.rentals.empty": "Noch keine Mietverhaeltnisse angelegt.",
   "pm.rentals.assign": "Zuweisen",
   "pm.rentals.selectProperty": "Immobilie waehlen...",
-  "pm.rentals.selectTenant": "Mieter waehlen..."
+  "pm.rentals.selectTenant": "Mieter waehlen...",
+  "pm.propertyOwners.title": "Eigentuemer",
+  "pm.propertyOwners.count.one": "{count} Eigentuemer",
+  "pm.propertyOwners.count.other": "{count} Eigentuemer",
+  "pm.propertyOwners.empty": "Noch keine Eigentuemer angelegt.",
+  "pm.propertyOwners.add": "Hinzufuegen",
+  "pm.propertyOwners.name": "Name",
+  "pm.propertyOwners.namePlaceholder": "z.B. Max Mustermann",
+  "pm.propertyOwners.invite": "Einladen",
+  "pm.propertyOwners.emailPlaceholder": "E-Mail-Adresse"
 }

@@ -16,6 +16,7 @@
   "header.partyKind.tenant": "Tenant",
   "header.partyKind.property_manager": "Property Manager",
   "header.partyKind.assistant": "Assistant",
+  "header.partyKind.property_owner": "Property Owner",
   "header.language": "Language",
   "footer.tagline": "Design-system-first product foundation for durable web applications.",
   "footer.copyright": "© 2025-2026 Luminor. All rights reserved.",
@@ -210,5 +211,14 @@
   "pm.rentals.empty": "No rentals yet.",
   "pm.rentals.assign": "Assign",
   "pm.rentals.selectProperty": "Select property...",
-  "pm.rentals.selectTenant": "Select tenant..."
+  "pm.rentals.selectTenant": "Select tenant...",
+  "pm.propertyOwners.title": "Property Owners",
+  "pm.propertyOwners.count.one": "{count} property owner",
+  "pm.propertyOwners.count.other": "{count} property owners",
+  "pm.propertyOwners.empty": "No property owners yet.",
+  "pm.propertyOwners.add": "Add",
+  "pm.propertyOwners.name": "Name",
+  "pm.propertyOwners.namePlaceholder": "e.g. John Smith",
+  "pm.propertyOwners.invite": "Invite",
+  "pm.propertyOwners.emailPlaceholder": "Email address"
 }

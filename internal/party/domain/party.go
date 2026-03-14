@@ -28,11 +28,12 @@ const (
 	PartyKindTenant          PartyKind = "tenant"
 	PartyKindPropertyManager PartyKind = "property_manager"
 	PartyKindAssistant       PartyKind = "assistant"
+	PartyKindPropertyOwner   PartyKind = "property_owner"
 )
 
 // ValidPartyKinds returns all recognized party kinds.
 func ValidPartyKinds() []PartyKind {
-	return []PartyKind{PartyKindTenant, PartyKindPropertyManager, PartyKindAssistant}
+	return []PartyKind{PartyKindTenant, PartyKindPropertyManager, PartyKindAssistant, PartyKindPropertyOwner}
 }
 
 // IsValidPartyKind checks whether the given kind is recognized.

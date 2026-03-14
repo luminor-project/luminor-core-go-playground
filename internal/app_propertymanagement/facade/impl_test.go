@@ -179,3 +179,61 @@ func TestInviteTenant_CreatesInvitationAndPendingLink(t *testing.T) {
 		t.Errorf("expected inv-1, got %q", acctFac.lastInvitationID)
 	}
 }
+
+func TestCreatePropertyOwner_CallsPartyFacadeWithPropertyOwnerKind(t *testing.T) {
+	t.Parallel()
+
+	partyFac := &fakePartyFacade{}
+	fac := New(partyFac, nil, nil, nil, nil)
+
+	id, err := fac.CreatePropertyOwner(context.Background(), CreatePropertyOwnerDTO{
+		Name:               "John Smith",
+		OrgID:              "org-1",
+		CreatedByAccountID: "acct-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "tenant-party-1" {
+		t.Errorf("expected tenant-party-1, got %q", id)
+	}
+	if partyFac.lastDTO.PartyKind != partyfacade.PartyKindPropertyOwner {
+		t.Errorf("expected PartyKindPropertyOwner, got %q", partyFac.lastDTO.PartyKind)
+	}
+	if partyFac.lastDTO.ActorKind != partyfacade.ActorKindHuman {
+		t.Errorf("expected ActorKindHuman, got %q", partyFac.lastDTO.ActorKind)
+	}
+}
+
+func TestInvitePropertyOwner_CreatesInvitationAndPendingLink(t *testing.T) {
+	t.Parallel()
+
+	acctFac := &fakeAccountFacade{}
+	orgFac := &fakeOrgFacade{}
+	fac := New(nil, nil, nil, acctFac, orgFac)
+
+	err := fac.InvitePropertyOwner(context.Background(), InvitePropertyOwnerDTO{
+		PropertyOwnerPartyID: "party-1",
+		Email:                "john@example.com",
+		OrgID:                "org-1",
+		ActorAccountID:       "acct-pm",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if orgFac.createInvitationCalls != 1 {
+		t.Fatalf("expected 1 invitation call, got %d", orgFac.createInvitationCalls)
+	}
+	if orgFac.lastEmail != "john@example.com" {
+		t.Errorf("expected john@example.com, got %q", orgFac.lastEmail)
+	}
+	if acctFac.createPendingLinkCalls != 1 {
+		t.Fatalf("expected 1 pending link call, got %d", acctFac.createPendingLinkCalls)
+	}
+	if acctFac.lastPartyID != "party-1" {
+		t.Errorf("expected party-1, got %q", acctFac.lastPartyID)
+	}
+	if acctFac.lastInvitationID != "inv-1" {
+		t.Errorf("expected inv-1, got %q", acctFac.lastInvitationID)
+	}
+}

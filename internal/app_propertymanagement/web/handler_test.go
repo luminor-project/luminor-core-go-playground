@@ -17,10 +17,12 @@ import (
 )
 
 type fakePMFacade struct {
-	createPropertyCalls int
-	createTenantCalls   int
-	assignTenantCalls   int
-	inviteTenantCalls   int
+	createPropertyCalls      int
+	createTenantCalls        int
+	assignTenantCalls        int
+	inviteTenantCalls        int
+	createPropertyOwnerCalls int
+	invitePropertyOwnerCalls int
 }
 
 func (f *fakePMFacade) CreateProperty(_ context.Context, _ facade.CreatePropertyDTO) (string, error) {
@@ -40,6 +42,16 @@ func (f *fakePMFacade) AssignTenantToProperty(_ context.Context, _ facade.Assign
 
 func (f *fakePMFacade) InviteTenant(_ context.Context, _ facade.InviteTenantDTO) error {
 	f.inviteTenantCalls++
+	return nil
+}
+
+func (f *fakePMFacade) CreatePropertyOwner(_ context.Context, _ facade.CreatePropertyOwnerDTO) (string, error) {
+	f.createPropertyOwnerCalls++
+	return "party-owner-1", nil
+}
+
+func (f *fakePMFacade) InvitePropertyOwner(_ context.Context, _ facade.InvitePropertyOwnerDTO) error {
+	f.invitePropertyOwnerCalls++
 	return nil
 }
 
@@ -176,5 +188,52 @@ func TestHandleInviteTenant_RedirectsOnSuccess(t *testing.T) {
 	}
 	if pmFac.inviteTenantCalls != 1 {
 		t.Fatalf("expected 1 call, got %d", pmFac.inviteTenantCalls)
+	}
+}
+
+func TestHandleCreatePropertyOwner_RedirectsOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	pmFac := &fakePMFacade{}
+	h := NewHandler(pmFac, nil, nil, nil, &fakeAccountInfo{activeOrgID: "org-1"})
+
+	form := url.Values{}
+	form.Set("name", "John Smith")
+	req := httptest.NewRequest(http.MethodPost, "/property-management/property-owners", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(auth.WithUser(req.Context(), newTestUser()))
+	rr := httptest.NewRecorder()
+
+	h.HandleCreatePropertyOwner(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303, got %d", rr.Code)
+	}
+	if pmFac.createPropertyOwnerCalls != 1 {
+		t.Fatalf("expected 1 call, got %d", pmFac.createPropertyOwnerCalls)
+	}
+}
+
+func TestHandleInvitePropertyOwner_RedirectsOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	pmFac := &fakePMFacade{}
+	h := NewHandler(pmFac, nil, nil, nil, &fakeAccountInfo{activeOrgID: "org-1"})
+
+	form := url.Values{}
+	form.Set("email", "john@example.com")
+	req := httptest.NewRequest(http.MethodPost, "/property-management/property-owners/{ownerId}/invite", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("ownerId", "party-owner-1")
+	req = req.WithContext(auth.WithUser(req.Context(), newTestUser()))
+	rr := httptest.NewRecorder()
+
+	h.HandleInvitePropertyOwner(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303, got %d", rr.Code)
+	}
+	if pmFac.invitePropertyOwnerCalls != 1 {
+		t.Fatalf("expected 1 call, got %d", pmFac.invitePropertyOwnerCalls)
 	}
 }

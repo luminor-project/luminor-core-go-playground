@@ -27,4 +27,6 @@ func RegisterRoutes(
 	mux.Handle("POST /property-management/tenants", guard(h.HandleCreateTenant))
 	mux.Handle("POST /property-management/rentals", guard(h.HandleAssignTenant))
 	mux.Handle("POST /property-management/tenants/{tenantId}/invite", guard(h.HandleInviteTenant))
+	mux.Handle("POST /property-management/property-owners", guard(h.HandleCreatePropertyOwner))
+	mux.Handle("POST /property-management/property-owners/{ownerId}/invite", guard(h.HandleInvitePropertyOwner))
 }

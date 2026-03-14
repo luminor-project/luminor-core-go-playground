@@ -20,6 +20,7 @@ const (
 	PartyKindTenant          PartyKind = "tenant"
 	PartyKindPropertyManager PartyKind = "property_manager"
 	PartyKindAssistant       PartyKind = "assistant"
+	PartyKindPropertyOwner   PartyKind = "property_owner"
 )
 
 // PartyInfoDTO holds party data for cross-vertical communication.

@@ -20,6 +20,8 @@ type pmUseCases interface {
 	CreateTenant(ctx context.Context, dto facade.CreateTenantDTO) (string, error)
 	AssignTenantToProperty(ctx context.Context, dto facade.AssignTenantDTO) (string, error)
 	InviteTenant(ctx context.Context, dto facade.InviteTenantDTO) error
+	CreatePropertyOwner(ctx context.Context, dto facade.CreatePropertyOwnerDTO) (string, error)
+	InvitePropertyOwner(ctx context.Context, dto facade.InvitePropertyOwnerDTO) error
 }
 
 type partyLister interface {
@@ -75,12 +77,14 @@ func (h *Handler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 
 	properties, _ := h.subjects.ListSubjectsByOrgAndKind(r.Context(), orgID, subjectfacade.SubjectKindDwelling)
 	tenants, _ := h.parties.ListPartiesByOrgAndKind(r.Context(), orgID, partyfacade.PartyKindTenant)
+	propertyOwners, _ := h.parties.ListPartiesByOrgAndKind(r.Context(), orgID, partyfacade.PartyKindPropertyOwner)
 	rentals, _ := h.rentals.ListRentalsByOrg(r.Context(), orgID)
 
 	render.Page(w, r, templates.Dashboard(templates.DashboardData{
-		Properties: properties,
-		Tenants:    tenants,
-		Rentals:    rentals,
+		Properties:     properties,
+		Tenants:        tenants,
+		PropertyOwners: propertyOwners,
+		Rentals:        rentals,
 	}))
 }
 
@@ -197,6 +201,66 @@ func (h *Handler) HandleInviteTenant(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("invite tenant failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), "/property-management"), http.StatusSeeOther)
+}
+
+// HandleCreatePropertyOwner handles POST /property-management/property-owners.
+func (h *Handler) HandleCreatePropertyOwner(w http.ResponseWriter, r *http.Request) {
+	user := auth.MustUserFromContext(r.Context())
+	orgID, err := h.getActiveOrgID(r)
+	if err != nil {
+		slog.Error("failed to get active org", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	_, err = h.pm.CreatePropertyOwner(r.Context(), facade.CreatePropertyOwnerDTO{
+		Name:               r.FormValue("name"),
+		OrgID:              orgID,
+		CreatedByAccountID: user.ID,
+	})
+	if err != nil {
+		slog.Error("create property owner failed", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, i18n.LocalizedPath(r.Context(), "/property-management"), http.StatusSeeOther)
+}
+
+// HandleInvitePropertyOwner handles POST /property-management/property-owners/{ownerId}/invite.
+func (h *Handler) HandleInvitePropertyOwner(w http.ResponseWriter, r *http.Request) {
+	user := auth.MustUserFromContext(r.Context())
+	propertyOwnerPartyID := r.PathValue("ownerId")
+	orgID, err := h.getActiveOrgID(r)
+	if err != nil {
+		slog.Error("failed to get active org", "error", err)
+		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(r.Context(), "error.invalidForm"), http.StatusBadRequest)
+		return
+	}
+
+	err = h.pm.InvitePropertyOwner(r.Context(), facade.InvitePropertyOwnerDTO{
+		PropertyOwnerPartyID: propertyOwnerPartyID,
+		Email:                r.FormValue("email"),
+		OrgID:                orgID,
+		ActorAccountID:       user.ID,
+	})
+	if err != nil {
+		slog.Error("invite property owner failed", "error", err)
 		http.Error(w, i18n.T(r.Context(), "error.internal"), http.StatusInternalServerError)
 		return
 	}

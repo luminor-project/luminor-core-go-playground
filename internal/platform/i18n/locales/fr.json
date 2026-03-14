@@ -16,6 +16,7 @@
   "header.partyKind.tenant": "Locataire",
   "header.partyKind.property_manager": "Gestionnaire",
   "header.partyKind.assistant": "Assistant",
+  "header.partyKind.property_owner": "Proprietaire",
   "header.language": "Langue",
   "footer.tagline": "Base produit orientee systeme de design pour des applications web durables.",
   "footer.copyright": "© 2025-2026 Luminor. Tous droits reserves.",
@@ -210,5 +211,14 @@
   "pm.rentals.empty": "Aucune location pour le moment.",
   "pm.rentals.assign": "Attribuer",
   "pm.rentals.selectProperty": "Selectionner un bien...",
-  "pm.rentals.selectTenant": "Selectionner un locataire..."
+  "pm.rentals.selectTenant": "Selectionner un locataire...",
+  "pm.propertyOwners.title": "Proprietaires",
+  "pm.propertyOwners.count.one": "{count} proprietaire",
+  "pm.propertyOwners.count.other": "{count} proprietaires",
+  "pm.propertyOwners.empty": "Aucun proprietaire pour le moment.",
+  "pm.propertyOwners.add": "Ajouter",
+  "pm.propertyOwners.name": "Nom",
+  "pm.propertyOwners.namePlaceholder": "p. ex. Jean Dupont",
+  "pm.propertyOwners.invite": "Inviter",
+  "pm.propertyOwners.emailPlaceholder": "Adresse e-mail"
 }
