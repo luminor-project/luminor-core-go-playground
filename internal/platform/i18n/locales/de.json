@@ -26,6 +26,7 @@
   "error.internal": "Interner Fehler.",
   "error.csrfInvalid": "Ungueltiges CSRF-Token.",
   "homepage.title": "Luminor",
+  "homepage.greeting.message": "Bereit zu gehen? (Das Wortspiel ist Absicht, und ja, wir sind stolz darauf.)",
   "homepage.hero.title": "Luminor App Starter Kit",
   "homepage.hero.subtitle": "Eine meinungsstarke Go-Webanwendungsbasis rund um Vertical-Slice-Architektur mit klaren Grenzen, umfassenden Tests und starker DX.",
   "homepage.hero.ctaPrimary": "Jetzt starten",
