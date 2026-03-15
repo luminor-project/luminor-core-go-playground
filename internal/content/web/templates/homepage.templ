@@ -8,6 +8,12 @@ import (
 templ Homepage() {
 	@layouts.FullContent(i18n.T(ctx, "homepage.title")) {
 		<div class="py-12 sm:py-16 space-y-14">
+			<section class="lmn-greeting-banner">
+				<div class="lmn-card-content text-center">
+					<p class="lmn-greeting-text">{ i18n.T(ctx, "homepage.greeting.message") }</p>
+				</div>
+			</section>
+
 			<section class="lmn-hero-shell">
 				<div class="lmn-card-content text-center py-12 sm:py-16">
 					<h1 class="lmn-h1-gradient">
